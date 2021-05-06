@@ -7,7 +7,7 @@
  111  777    555555
 
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 30/04/2021
+	Last edit: 06/54/2021
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -53,6 +53,7 @@ struct ANSIColor
     cyan::Function
     white::Function
     black::Function
+    rgb::Function
     ANSIColor() = new(
         c -> "\e[31m$c\e[0m", # Red
         c -> "\e[31;1m$c\e[0m", # Bright red
@@ -63,7 +64,8 @@ struct ANSIColor
         c -> "\e[35m$c\e[0m", # Magenta
         c -> "\e[36m$c\e[0m", # Cyan
         c -> "\e[37m$c\e[0m", # White
-        c -> "\e[40m$c\e[0m" # Black
+        c -> "\e[40m$c\e[0m", # Black
+        c -> "\x1b[38;2;55;223;206m" #test RGB
     )
 end
 global const ANSI = ANSIColor()
@@ -169,15 +171,26 @@ global const KEY_D = "d"
 global const KEY_R = "r"
 
 # Cursor
-mutable struct cursor
-	x::Int
+mutable struct CursorStruct
+	x::Int 
 	y::Int
+	CursorStruct(x, y) = new(x, y)
 end
-
-hidecursor() = print("\e[?25l") # test \x1b[?25l
+function CursorMove(cursor::CursorStruct, co::Array, sym::String)
+	mov = ""
+	if cursor.x < co[1]
+		cursor.x = co[1]
+	elseif cursor.y < co[2]
+		cursor.y = co[2]
+	end
+	mov = "\x1b[$(cursor.y);$(cursor.x)H"*"$(sym)"
+	mov
+end
+hidecursor() = print("\e[?25l") # Or \x1b[?25l
 showcursor() = println("\e[?25h")
+
 function clearscreen()
-	# move cursor to beginning, then to end then again begin
+	# Move cursor to beginning, then clear to end then again begin
 	println("\33[H")
 	println("\33[J")
 	println("\33[H")
@@ -196,11 +209,13 @@ mutable struct GameState
 	gh::Int # Grid height
 	grid::GRID # Grid itself
 	gameover::Bool
+	player::Int # Player turn
 	GameState(	gw = GRID_WIDTH,
 				gh = GRID_HEIGHT,
 				grid = resetGrid(gw, gh),
-				gameover = false
-			) = new(gw, gh, grid, gameover)
+				gameover = false,
+				player = 1
+			) = new(gw, gh, grid, gameover, player)
 end
 function resetGrid(gw::Int, gh::Int)
 	return zeros(Int, 2*gh-1, 2*gw-1) # V1: use array, for points and places in between (later maybe: actually no array for points needed)
@@ -224,22 +239,27 @@ function InitiateGrid(state::GameState)
 	end
 end
 function checkAround(state::GameState)
-	# TODO
+	# TODO 
 	co = [x, y]
 
 	around = 0
 	for y in 2:2:state.gh-1
 		for x in 2:2:state.gw-1
-			if state.grid[y, x] == -2
-				# onder boven links rechts
-				for dy in -1:2:1
-					if state.grid[y+dy, x] != 0
-						around+=1
+			# either way, is a -2
+			# onder boven links rechts
+			for dy in -1:2:1
+				if state.grid[y+dy, x] != 0
+					around+=1
+					if around == 3
+
 					end
 				end
-				for dx in -1:2:1
-					if state.grid[y, x+dx] != 0
-						around+=1
+			end
+			for dx in -1:2:1
+				if state.grid[y, x+dx] != 0
+					around+=1
+					if around == 3
+
 					end
 				end
 			end
@@ -251,19 +271,20 @@ end
 #######################<---REPL GAME MODE--->#######################
 function REPLMODE()
 	# Makes String array of grid, to easy change and later print
-	function GridToPrint(state::GameState)
+	function GridToPrint(state::GameState, co::Array)
 		GRIDPOINT = ["+", "██"]
 		LINE = ["-", "="]
 		VERTLINE = ["|"]
 		spacingx = 8
-		# startcoordinaat doorgeven TODO: tuple
-		cox = 1
-		coy = 1
+
+		# TODO: tuple, starting coordinate
+		cox = co[1]
+		coy = co[2]
 
 		gridprint = ""
 
         for y in 1:2*state.gh-1
-        	if y%2 != 0
+        	if y%2 != 0 # Uneven lines
 	            for x in 1:2*state.gw-1
 	                if state.grid[y, x] == -1
 	                    gridprint *= "\x1b[$(coy);$(cox)H"
@@ -314,42 +335,21 @@ function REPLMODE()
 	                    	cox += spacingx
 		                end
 		            end
-		            cox = 1
+		            cox = co[1]
 	        	end
 	        	coy+=1
 	        end
-            cox = 1
+            cox = co[1]
         end
         gridprint
 	end
 
-	function cursorthing()
+	LayOutstuff = []
+
+	function timerr()
 
 	end
 
-	# Draws Grid (old)
-	function DrawGridREPL(state::GameState, grid::GRID)
-		GRIDPOINT = ["+", "██"]
-		spacingx = 4 # Number of chars in between, put even number (square) (actually half of spacing)
-		# spacingy = 1 # TODO, for now 1-1 link with spacingx -> draws square
-		for y in 1:2*state.gh-1
-			for x in 1:2*state.gw-1
-				if grid[y, x] == -1
-					print(GRIDPOINT[1])
-				elseif grid[y, x] == 1
-					print(ANSI.red("-")^spacingx)
-				elseif grid[y, x] == 2
-					print(ANSI.blue("-")^spacingx)
-				else
-					print(" ")
-				end
-				print(" "^spacingx)
-			end
-			for i in 1:round(spacingx/2)
-				println()
-			end
-		end
-	end
 	# Debugging
 	function printarray(a::Array)
 		println()
@@ -362,51 +362,66 @@ function REPLMODE()
 		state::GameState = GameState()
 
 		UPDATE::Bool = true # Only update screen if something has happened (ie key press)
+		restart::Bool = false 
+		startco = [20, 10]
 
 		InitiateGrid(state)
 		Initiate_Keyboard_Input()
+		cursor = CursorStruct(startco[1],startco[2])
 
 		 # Clear entire console screen
     	clearscreen()
-
-    	#p = GridToPrint(state, state.grid)
 
     	# Game loop
 		while !state.gameover
 			sleep(0.05)
 
-			if UPDATE
-				hidecursor()
-				clearscreen()
-			
-				str = GridToPrint(state)
-				println(str)
-				printarray(state.grid)
-				#printarray(p)
-				UPDATE = false
-			end
-
+			spacingtest = 8
 			# Key input
 			key = readinput()
 			if key == KEY_R
 				state.gameover = true
-				println("Restart")
+				restart = true
+			elseif key == "Ctrl-C"
+				state.gameover = true
 			elseif key == KEY_Z || key == "Up"
-			
+				UPDATE = true
+				cursor.y-=round(spacingtest/2)
 			elseif key == KEY_S || key == "Down"
-
+				UPDATE = true
+				cursor.y+=round(spacingtest/2)
 			elseif key == KEY_D || key == "Right"
-				
-			elseif key == KEY_ESC || key == "Left"
-				
+				UPDATE = true
+				cursor.x+=round(spacingtest/2)+1
+			elseif key == KEY_Q || key == "Left"
+				UPDATE = true
+				cursor.x-=round(spacingtest)+1
 			end
 
 			# Game Logic
 
+			# Print Output
+			if UPDATE
+				clearscreen()
+				println(GridToPrint(state, startco))
+
+				println(CursorMove(cursor, startco, ANSI.cyan("0")))
+
+				#printarray(state.grid)
+				UPDATE = false
+			end
 		end
 
-		println("exit")
-		exit()
+		if restart
+			# TODO move cursor to end
+			println("Restart")
+			DotsAndBoxesREPL()
+		else
+			# TODO move cursor to end
+			clearscreen()
+			println("Exit")
+			exit()
+		end
 	end
 
 	DotsAndBoxesREPL()
@@ -414,6 +429,8 @@ end
 
 #######################<---GAMEZERO GAME MODE--->#######################
 function GAMEZEROMODE()
+
+
 end
 
 
