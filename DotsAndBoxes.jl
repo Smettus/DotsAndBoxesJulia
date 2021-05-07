@@ -176,16 +176,6 @@ mutable struct CursorStruct
 	y::Int
 	CursorStruct(x, y) = new(x, y)
 end
-function CursorMove(cursor::CursorStruct, co::Array, sym::String)
-	mov = ""
-	if cursor.x < co[1]
-		cursor.x = co[1]
-	elseif cursor.y < co[2]
-		cursor.y = co[2]
-	end
-	mov = "\x1b[$(cursor.y);$(cursor.x)H"*"$(sym)"
-	mov
-end
 hidecursor() = print("\e[?25l") # Or \x1b[?25l
 showcursor() = println("\e[?25h")
 
@@ -311,25 +301,40 @@ function REPLMODE()
 	spacingx = 8
 	spacingy = 3 # 3 newlines
 	startco = [20, 10]
-
-	function CursorInGameMove(cursor::CursorStruct, startcord::Array)
-		if cursor.x < startcord[1]
-			cursor.x = startcord[1] + round(spacingx/2)
-		elseif cursor.y < startcord[2]
-			cursor.y = startcord[2] + round(spacingy/2)
+	GRIDPOINT = ["+", "██"]
+	HORZLINE = ["-", "="]
+	VERTLINE = ["|"]
+	CURSORCHAR = '0'
+	function CursorInGameMove(state::GameState, cursor::CursorStruct, strgrid::Array)
+		if cursor.x < 1
+			cursor.x = 1 # Start here
+		elseif cursor.y < 1
+			cursor.y = 1
+		elseif cursor.x > 2*state.gw-1
+			cursor.x = 2*state.gw-1
+		elseif cursor.y > 2*state.gh-1
+			cursor.y = 2*state.gh-1
+		elseif cursor.y == 2*state.gh-1 && cursor.x == 0
+			cursor.x+=2
 		end
+		element = strgrid[cursor.y, cursor.x]
+		element = collect(element)
+		if cursor.y%2 != 0 # Uneven lines
+			for i in 1:length(element)
+				if string(element[i]) == HORZLINE[1]
+					element[i] = CURSORCHAR
+				end
+			end
+		else
 
-
-
+		end
+		element = join(element)
+		return element
 	end
 
 	# Makes String array of grid, to easy change and later print
 	# V2: makes entire grid itself, same dimensions as state.grid
 	function GridToPrint(state::GameState, co::Array)
-		GRIDPOINT = ["+", "██"]
-		HORZLINE = ["-", "="]
-		VERTLINE = ["|"]
-
 		cox = co[1]
 		coy = co[2]
 
@@ -410,10 +415,10 @@ function REPLMODE()
 
 		UPDATE::Bool = true # Only update screen if something has happened (ie key press)
 		restart::Bool = false
-
+		oost = ""
 		InitiateGrid(state)
 		Initiate_Keyboard_Input()
-		cursor = CursorStruct(startco[1],startco[2])
+		cursor = CursorStruct(2, 1) # 1, 1 ook goed
 
 		 # Clear entire console screen
     	clearscreen()
@@ -421,6 +426,7 @@ function REPLMODE()
     	# Game loop
 		while !state.gameover
 			sleep(0.05)
+			t = GridToPrint(state, startco)
 
 			# Key input
 			key = readinput()
@@ -432,15 +438,19 @@ function REPLMODE()
 			elseif key == KEY_Z || key == "Up"
 				UPDATE = true
 				cursor.y-=1
+				oost = CursorInGameMove(state, cursor, t)
 			elseif key == KEY_S || key == "Down"
 				UPDATE = true
 				cursor.y+=1
+				oost = CursorInGameMove(cursor, t)
 			elseif key == KEY_D || key == "Right"
 				UPDATE = true
-				cursor.x+=1
+				cursor.x+=2
+				oost = CursorInGameMove(state, cursor, t)
 			elseif key == KEY_Q || key == "Left"
 				UPDATE = true
-				cursor.x-=1
+				cursor.x-=2
+				oost = CursorInGameMove(state, cursor, t)
 			elseif key == "?" || key == "F1"
 				HelpMenu()
 			elseif key == "Enter"
@@ -450,7 +460,7 @@ function REPLMODE()
 				# place in state.grid value of state.player
 				
 			end
-
+			#@show cursor
 			# Game Logic
 			prevgrid = checkAround(state)
 			Change(state, prevgrid)
@@ -462,9 +472,8 @@ function REPLMODE()
 				clearscreen()
 
 				# Grid
-				t = GridToPrint(state, startco)
 				#printarray(t)
-				#printarray(state.grid)
+				printarray(state.grid)
 				str = ""
 				for y in 1:2*state.gh-1
 					for x in 1:2*state.gw-1
@@ -472,6 +481,8 @@ function REPLMODE()
 					end
 				end
 				println(str)
+				@show oost
+				println(oost)
 
 				# Cursor
 				#println(CursorInGameMove(cursor, startco)) 
