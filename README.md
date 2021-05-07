@@ -1,3 +1,3 @@
 # DotsAndBoxesJulia
 
--TODO: checkAround, cursor movement, game logic
+-TODO: checkAround-> ok, cursor movement, game logic
