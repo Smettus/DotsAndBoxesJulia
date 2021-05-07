@@ -7,7 +7,7 @@
  111  777    555555
 
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 06/54/2021
+	Last edit: 07/05/2021 @0145
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -22,7 +22,7 @@
 		Maken in GameZero
 		
 
-		//Maken in NativeSVG / Pluto (why not)
+		NO//Maken in NativeSVG / Pluto (why not)
 		
 		Game Logic:
 
@@ -30,8 +30,8 @@
 		Lezen Paper
 
 
-		Opmaak, coole interface
-		Check lpad()
+
+		YES!!!CHANGE EVERY 2*state.gw -1 thing to size(...)
 """
 #######################<---Startup in REPL--->#######################
 # TO DO: write startup screen (cool, graphics)
@@ -161,9 +161,9 @@ function readinput()
     	end
     end
 end
-
 # Keys
 global const KEY_ESC = "ESC"
+global const KEY_ENTER = "Enter"
 global const KEY_Q = "q"
 global const KEY_Z = "z"
 global const KEY_S = "s"
@@ -200,8 +200,8 @@ end
 
 #######################<---After choice--->#######################
 # TO DO: functions available to all, both GameZero and REPL
-global const GRID_WIDTH = 5
-global const GRID_HEIGHT = 5
+global const GRID_WIDTH = 4
+global const GRID_HEIGHT = 4
 global const GRID = Array{Int}
 
 mutable struct GameState
@@ -210,12 +210,16 @@ mutable struct GameState
 	grid::GRID # Grid itself
 	gameover::Bool
 	player::Int # Player turn
+	score1::Int
+	score2::Int
 	GameState(	gw = GRID_WIDTH,
 				gh = GRID_HEIGHT,
 				grid = resetGrid(gw, gh),
 				gameover = false,
-				player = 1
-			) = new(gw, gh, grid, gameover, player)
+				player = 1,
+				score1 = 0,
+				score2 = 0
+			) = new(gw, gh, grid, gameover, player, score1, score2)
 end
 function resetGrid(gw::Int, gh::Int)
 	return zeros(Int, 2*gh-1, 2*gw-1) # V1: use array, for points and places in between (later maybe: actually no array for points needed)
@@ -238,100 +242,144 @@ function InitiateGrid(state::GameState)
 		end
 	end
 end
-function checkAround(state::GameState)
-	# TODO 
-	co = [x, y]
 
+function checkAround(state::GameState)
 	around = 0
 	for y in 2:2:state.gh-1
 		for x in 2:2:state.gw-1
-			# either way, is a -2
-			# onder boven links rechts
-			for dy in -1:2:1
-				if state.grid[y+dy, x] != 0
-					around+=1
-					if around == 3
-
+			if state.grid[y, x] == -2
+				# Up Down Left Right
+				for dy in -1:2:1
+					if state.grid[y+dy, x] != 0 # player one or two doestn care
+						around+=1
 					end
 				end
-			end
-			for dx in -1:2:1
-				if state.grid[y, x+dx] != 0
-					around+=1
-					if around == 3
-
+				for dx in -1:2:1
+					if state.grid[y, x+dx] != 0
+						around+=1
+					end
+				end
+				if around == 3
+					for dy in -1:2:1
+						if state.grid[y+i, x] == 0
+							state.grid[y+i, x] = 8 # Randomly chosen, >=5
+						end
+					end
+					for dx in -1:2:1
+						if state.grid[y, x+j] == 0
+							state.grid[y, x+j] = 8
+						end
+					end
+				elseif around == 4
+					for dy in -1:2:1
+						if state.grid[y+dy, x] == 6
+							state.grid[y, x] = 2
+						elseif state.grid[y+dy, x] == 7
+							state.grid[y, x] = 1
+						end
+					end
+					for dx in -1:2:1
+						if state.grid[y, x+dx] == 6
+							state.grid[y, x] = 2
+						elseif state.grid[y, x+dx] == 7
+							state.grid[y, x] = 1
+						end
 					end
 				end
 			end
 		end
 	end
+	copygrid  = state.grid[:,:]
+	return copygrid
+end
 
+function Change(state::GameState, oldgrid::GRID)
+	change = oldgrid - state.grid # Pointwise
+
+	for y in 1:2*state.gh-1
+		for x in 1:2*state.gw-1
+			if change[y, x] > 5
+				state.grid[y, x] = change[y, x]
+				checkAround(state)
+			end
+		end
+	end
 end
 
 #######################<---REPL GAME MODE--->#######################
 function REPLMODE()
+	spacingx = 8
+	spacingy = 3 # 3 newlines
+	startco = [20, 10]
+
+	function CursorInGameMove(cursor::CursorStruct, startcord::Array)
+		if cursor.x < startcord[1]
+			cursor.x = startcord[1] + round(spacingx/2)
+		elseif cursor.y < startcord[2]
+			cursor.y = startcord[2] + round(spacingy/2)
+		end
+
+
+
+	end
+
 	# Makes String array of grid, to easy change and later print
+	# V2: makes entire grid itself, same dimensions as state.grid
 	function GridToPrint(state::GameState, co::Array)
 		GRIDPOINT = ["+", "██"]
-		LINE = ["-", "="]
+		HORZLINE = ["-", "="]
 		VERTLINE = ["|"]
-		spacingx = 8
 
-		# TODO: tuple, starting coordinate
 		cox = co[1]
 		coy = co[2]
 
-		gridprint = ""
+		#TODO: vertline fix... -> solution import new row each time spacingy
 
+		gridprint = fill("", (2*state.gh-1, 2*state.gw-1))
         for y in 1:2*state.gh-1
         	if y%2 != 0 # Uneven lines
 	            for x in 1:2*state.gw-1
 	                if state.grid[y, x] == -1
-	                    gridprint *= "\x1b[$(coy);$(cox)H"
-	                    gridprint *= GRIDPOINT[1]
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*GRIDPOINT[1]
 	                    cox += length(GRIDPOINT[1])
 	                elseif state.grid[y, x] == -2
-	                    gridprint *= "\x1b[$(coy);$(cox)H"
-	                    gridprint *= " "
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*" "
 	                    cox += length(" ")
-	                elseif state.grid[y,x] == 1
-	                    gridprint *= "\x1b[$(coy);$(cox)H"
-	                    gridprint *= ANSI.red(LINE[1])^spacingx
-	                    cox += length(ANSI.red(LINE[1])^spacingx)
-	                elseif state.grid[y,x] == 2
-	                    gridprint *= "\x1b[$(coy);$(cox)H"
-	                    gridprint *= ANSI.blue(LINE[1])^spacingx
-	                    cox += length(ANSI.red(LINE[1])^spacingx)
-	                elseif state.grid[y,x] == 0
-                    	gridprint *= "\x1b[$(coy);$(cox)H"
-                    	gridprint *= LINE[1]^spacingx
-                    	cox += length(LINE[1]^spacingx)
+	                elseif state.grid[y,x] == 1 # Player 1 -> Red
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.red(HORZLINE[1])^spacingx
+	                    cox += length(ANSI.red(HORZLINE[1])^spacingx)
+	                elseif state.grid[y,x] == 2 # Player 2 -> Blue
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.blue(HORZLINE[1])^spacingx
+	                    cox += length(ANSI.blue(HORZLINE[1])^spacingx)
+	                elseif state.grid[y,x] == 0 # No one -> Colorless
+                    	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*HORZLINE[1]^spacingx
+                    	cox += length(HORZLINE[1]^spacingx)
 	                end
 	            end
-        	else
-        		# -1 erbij
-        		for i in 1:spacingx/2-1
+        	else # Even lines (in terms of dots)
+        		for i in 1:spacingx/2-1 # TODO: make spacingy // here, starts at 0
+        			y = Int(y) # Gives otherwise errors
+        			i = Int(i)
         			coy+=1
+        			# Insert new row, length stays same as prev: doesnt work....
+        			#newrow = fill("", 1, 2*state.gw-1)
+        			#gridprint = [gridprint[1:y+i+1, :]; newrow; gridprint[y+1+i:end, :]]
+        			#works now
 	        		for x in 1:2*state.gw-1
 		                if state.grid[y, x] == -1
-		                    gridprint *= "\x1b[$(coy);$(cox)H"
-		                    gridprint *= GRIDPOINT[1]
+		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*GRIDPOINT[1]
 		                    cox += length(GRIDPOINT[1])
 		                elseif state.grid[y, x] == -2
-		                    gridprint *= "\x1b[$(coy);$(cox)H"
-		                    gridprint *= " "
+		                   	gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*" "
 		                    cox += length(" ")
 		                elseif state.grid[y,x] == 1
-		                    gridprint *= "\x1b[$(coy);$(cox)H"
-		                    gridprint *= ANSI.red(VERTLINE[1])
+		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*ANSI.red(VERTLINE[1])
 		                    cox += length(ANSI.red(VERTLINE[1]))
 		                elseif state.grid[y,x] == 2
-		                    gridprint *= "\x1b[$(coy);$(cox)H"
-		                    gridprint *= ANSI.blue(VERTLINE[1])
+		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*ANSI.blue(VERTLINE[1])
 		                    cox += length(ANSI.red(VERTLINE[1]))
 		                elseif state.grid[y,x] == 0 
-	                    	gridprint *= "\x1b[$(coy);$(cox)H"
-	                    	gridprint *= VERTLINE[1]
+	                    	gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*VERTLINE[1]
 	                    	cox += spacingx
 		                end
 		            end
@@ -344,9 +392,8 @@ function REPLMODE()
         gridprint
 	end
 
-	LayOutstuff = []
-
-	function timerr()
+	function HelpMenu()
+		clearscreen()
 
 	end
 
@@ -362,8 +409,7 @@ function REPLMODE()
 		state::GameState = GameState()
 
 		UPDATE::Bool = true # Only update screen if something has happened (ie key press)
-		restart::Bool = false 
-		startco = [20, 10]
+		restart::Bool = false
 
 		InitiateGrid(state)
 		Initiate_Keyboard_Input()
@@ -376,7 +422,6 @@ function REPLMODE()
 		while !state.gameover
 			sleep(0.05)
 
-			spacingtest = 8
 			# Key input
 			key = readinput()
 			if key == KEY_R
@@ -386,35 +431,59 @@ function REPLMODE()
 				state.gameover = true
 			elseif key == KEY_Z || key == "Up"
 				UPDATE = true
-				cursor.y-=round(spacingtest/2)
+				cursor.y-=1
 			elseif key == KEY_S || key == "Down"
 				UPDATE = true
-				cursor.y+=round(spacingtest/2)
+				cursor.y+=1
 			elseif key == KEY_D || key == "Right"
 				UPDATE = true
-				cursor.x+=round(spacingtest/2)+1
+				cursor.x+=1
 			elseif key == KEY_Q || key == "Left"
 				UPDATE = true
-				cursor.x-=round(spacingtest)+1
+				cursor.x-=1
+			elseif key = "?" || "F1"
+				HelpMenu()
+			elseif key == "Enter"
+				# call function Move, state
+				# get cursorx, cursor y
+				# determine where on the board cursorx/y is
+				# place in state.grid value of state.player
+				
 			end
 
 			# Game Logic
+			prevgrid = checkAround(state)
+			Change(state, prevgrid)
+
+
 
 			# Print Output
 			if UPDATE
 				clearscreen()
-				println(GridToPrint(state, startco))
 
-				println(CursorMove(cursor, startco, ANSI.cyan("0")))
-
+				# Grid
+				t = GridToPrint(state, startco)
+				#printarray(t)
 				#printarray(state.grid)
+				str = ""
+				for y in 1:2*state.gh-1
+					for x in 1:2*state.gw-1
+						str*=t[y, x]
+					end
+				end
+				println(str)
+
+				# Cursor
+				#println(CursorInGameMove(cursor, startco)) 
+
 				UPDATE = false
 			end
 		end
 
 		if restart
-			# TODO move cursor to end
+			clearscreen()
 			println("Restart")
+			sleep(3)
 			DotsAndBoxesREPL()
 		else
 			# TODO move cursor to end
