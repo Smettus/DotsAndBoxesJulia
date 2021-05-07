@@ -441,7 +441,7 @@ function REPLMODE()
 			elseif key == KEY_Q || key == "Left"
 				UPDATE = true
 				cursor.x-=1
-			elseif key == "?" || "F1"
+			elseif key == "?" || key == "F1"
 				HelpMenu()
 			elseif key == "Enter"
 				# call function Move, state
