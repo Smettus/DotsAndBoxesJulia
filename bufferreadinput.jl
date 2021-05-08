@@ -339,7 +339,9 @@ function readinput()
        			#println(string(take!(BUFFER)))
             	esc_s *= take!(BUFFER)
         	end
-       	 	return esc_codes[esc_s]
+        	if haskey(esc_codes, esc_s) # Check wheter key is in it or not
+       	 		return esc_codes[esc_s]
+       	 	end
     	elseif Int(c) in 0:31
         	return ctrl_codes[Int(c)]
     	else
