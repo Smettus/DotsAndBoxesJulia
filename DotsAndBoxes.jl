@@ -77,17 +77,29 @@ global const esc_codes = Dict([
     "[5~" => "PgUp",
     "[6~" => "PdDown",
     "OP" => "F1",
+    "[[A" => "F1",
     "OQ" => "F2",
+    "[[B" => "F2",
     "OR" => "F3",
+    "[[C" => "F3",
     "OS" => "F4",
+    "[[D" => "F4",
     "[15~" => "F5",
+    "[[E" => "F5",
     "[17~" => "F6",
+    "[[F" => "F6",
     "[18~" => "F7",
+    "[[G" => "F7",
     "[19~" => "F8",
+    "[[H" => "F8",
     "[20~" => "F9",
+    "[[I" => "F9",
     "[21~" => "F10",
+    "[[J" => "F10",
     "[23~" => "F11",
+    "[[K" => "F11",
     "[24~" => "F12",
+    "[[L" => "F12",
     "\e" => "ESC"
 ])
 global const ctrl_codes = Dict([
@@ -147,7 +159,9 @@ function readinput()
        		while isempty(esc_s) || !(esc_s[end] in ['A','B','C','D','F','H','P','Q','R','S','~', '\e'])
             	esc_s *= take!(BUFFER)
         	end
-       	 	return esc_codes[esc_s]
+       	 	if haskey(esc_codes, esc_s) # Check whether key is in dictionary or not
+       	 		return esc_codes[esc_s]
+       	 	end
     	elseif Int(s) in 0:31
         	return ctrl_codes[Int(s)]
     	else
@@ -401,7 +415,24 @@ function REPLMODE()
 
 	function HelpMenu()
 		clearscreen()
+		UPDATE::Bool = true
+		while true
+			sleep(0.05)
+			key = readinput()
 
+			if UPDATE == true
+				println(ANSI.cyan("HELP MENU"))
+				println()
+				println("Press Z/Up to move cursor up")
+				println("...")
+				println("Press Ctrl-C to exit game")
+				println("Press ? or F1 to return to the game")
+				UPDATE = false
+			end
+			if key == "?" || key == "F1"
+				break
+			end
+		end
 	end
 
 	# Debugging
@@ -417,10 +448,11 @@ function REPLMODE()
 
 		UPDATE::Bool = true # Only update screen if something has happened (ie key press)
 		restart::Bool = false
-		oost = ""
+
 		InitiateGrid(state)
 		Initiate_Keyboard_Input()
 		cursor = CursorStruct(2, 1) # 1, 1 ook goed
+		oost = ""
 
 		 # Clear entire console screen
     	clearscreen()
@@ -437,6 +469,11 @@ function REPLMODE()
 				restart = true
 			elseif key == "Ctrl-C"
 				state.gameover = true
+			elseif key == "Ctrl-L"
+				UPDATE = true
+			elseif key == "?" || key == "F1"
+				HelpMenu()
+				UPDATE = true
 			elseif key == KEY_Z || key == "Up"
 				UPDATE = true
 				cursor.y-=1
@@ -455,16 +492,12 @@ function REPLMODE()
 				UPDATE = true
 				cursor.x-=2
 				oost = CursorInGameMove(state, cursor, t)
-			elseif key == "?" || key == "F1"
-				HelpMenu()
 			elseif key == "Enter"
-				# call function Move, state
-				# get cursorx, cursor y
-				# determine where on the board cursorx/y is
+				# call function Move with state, cursorx, cursor y
+				# determine where on the board cursorx/y is // Same as the cursor output
 				# place in state.grid value of state.player
 				
 			end
-			#@show cursor
 			# Game Logic
 			prevgrid = checkAround(state)
 			Change(state, prevgrid)
@@ -476,17 +509,19 @@ function REPLMODE()
 				clearscreen()
 
 				# Grid
-				#printarray(t)
 				printarray(state.grid)
-				str = ""
+				gridstr = ""
 				for y in 1:2*state.gh-1
 					for x in 1:2*state.gw-1
-						str*=t[y, x]
+						gridstr*=t[y, x]
 					end
 				end
-				println(str)
-				@show oost
+				println(gridstr)
+
+				# Cursor
 				println(oost)
+				@show oost
+				@show cursor
 
 				# Cursor
 				#println(CursorInGameMove(cursor, startco)) 
@@ -498,7 +533,7 @@ function REPLMODE()
 		if restart
 			clearscreen()
 			println("Restart")
-			sleep(3)
+			
 			DotsAndBoxesREPL()
 		else
 			# TODO move cursor to end
