@@ -5,7 +5,6 @@
   11    777  555555
   11   777      5555
  111  777    555555
-
 	Created by: Tim De Smet, Tomas Oostvogels
 	Last edit: 07/05/2021 @0145
 --------------------------------------------------------------------
@@ -21,16 +20,11 @@
 		Maken in REPL (+clock/timer rechtsboven)
 		Maken in GameZero
 		
-
 		NO//Maken in NativeSVG / Pluto (why not)
 		
 		Game Logic:
-
 		Bot:
 		Lezen Paper
-
-
-
 		YES!!!CHANGE EVERY 2*state.gw -1 thing to size(...)
 """
 #######################<---Startup in REPL--->#######################
@@ -306,16 +300,20 @@ function REPLMODE()
 	VERTLINE = ["|"]
 	CURSORCHAR = '0'
 	function CursorInGameMove(state::GameState, cursor::CursorStruct, strgrid::Array)
-		if cursor.x < 1
-			cursor.x = 1 # Start here
-		elseif cursor.y < 1
-			cursor.y = 1
-		elseif cursor.x > 2*state.gw-1
+		if cursor.x <= 1 && cursor.y%2 != 0
+			cursor.x = 2 # Start here
+		elseif cursor.x <= 1 && cursor.y%2 == 0
+			cursor.x = 1
+		elseif cursor.x >= 2*state.gw-1 && cursor.y%2 != 0
+			cursor.x = 2*state.gw-2
+		elseif cursor.x > 2*state.gw-1 && cursor.y%2 == 0
 			cursor.x = 2*state.gw-1
 		elseif cursor.y > 2*state.gh-1
 			cursor.y = 2*state.gh-1
 		elseif cursor.y == 2*state.gh-1 && cursor.x == 0
 			cursor.x+=2
+		elseif cursor.y < 1
+			cursor.y = 1
 		end
 		element = strgrid[cursor.y, cursor.x]
 		element = collect(element)
@@ -325,8 +323,12 @@ function REPLMODE()
 					element[i] = CURSORCHAR
 				end
 			end
-		else
-
+		elseif cursor.y%2 == 0
+			for i in 1:length(element)
+				if string(element[i]) == VERTLINE[1]
+					element[i] = CURSORCHAR
+				end
+			end
 		end
 		element = join(element)
 		return element
@@ -438,11 +440,13 @@ function REPLMODE()
 			elseif key == KEY_Z || key == "Up"
 				UPDATE = true
 				cursor.y-=1
+				cursor.x+=1
 				oost = CursorInGameMove(state, cursor, t)
 			elseif key == KEY_S || key == "Down"
 				UPDATE = true
 				cursor.y+=1
-				oost = CursorInGameMove(cursor, t)
+				cursor.x-=1
+				oost = CursorInGameMove(state, cursor, t)
 			elseif key == KEY_D || key == "Right"
 				UPDATE = true
 				cursor.x+=2
@@ -522,11 +526,9 @@ REPLMODE()
 function StartUp()
 	Initiate_Keyboard_Input()
 	clearscreen()
-
 	println(ANSI.blue("Mode 1: REPL Game Mode"))
 	println(ANSI.red("Mode 2: GameZero Mode"))
 	println("Exit")
-
 	while true
 		sleep(0.05)
 		key = readinput()
