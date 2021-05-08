@@ -6,7 +6,7 @@
   11   777      5555
  111  777    555555
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 07/05/2021 @0145
+	Last edit: 08/05/2021 @1600
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -243,27 +243,28 @@ end
 
 function checkAround(state::GameState)
 	around = 0
-	for y in 2:2:state.gh-1
-		for x in 2:2:state.gw-1
+	for y in 1:2*state.gh-1
+		for x in 1:2*state.gw-1
+		around = 0
 			if state.grid[y, x] == -2
 				# Up Down Left Right
 				for dy in -1:2:1
-					if state.grid[y+dy, x] != 0 # player one or two doestn care
+					if !(state.grid[y+dy, x] == 0 || state.grid[y+dy, x] == 8)# player one or two doestn care
 						around+=1
 					end
 				end
 				for dx in -1:2:1
-					if state.grid[y, x+dx] != 0
+					if !(state.grid[y, x+dx] == 0 || state.grid[y, x+dx] == 8)
 						around+=1
 					end
 				end
 				if around == 3
-					for dy in -1:2:1
+					for i in -1:2:1
 						if state.grid[y+i, x] == 0
 							state.grid[y+i, x] = 8 # Randomly chosen, >=5
 						end
 					end
-					for dx in -1:2:1
+					for j in -1:2:1
 						if state.grid[y, x+j] == 0
 							state.grid[y, x+j] = 8
 						end
@@ -271,16 +272,20 @@ function checkAround(state::GameState)
 				elseif around == 4
 					for dy in -1:2:1
 						if state.grid[y+dy, x] == 6
-							state.grid[y, x] = 2
+							state.grid[y, x] = 20
+							state.grid[y+dy, x] = 2
 						elseif state.grid[y+dy, x] == 7
-							state.grid[y, x] = 1
+							state.grid[y, x] = 10
+							state.grid[y+dy, x] = 1
 						end
 					end
 					for dx in -1:2:1
 						if state.grid[y, x+dx] == 6
-							state.grid[y, x] = 2
+							state.grid[y, x] = 20
+							state.grid[y, x+dx] = 2
 						elseif state.grid[y, x+dx] == 7
-							state.grid[y, x] = 1
+							state.grid[y, x] = 10
+							state.grid[y, x+dx] = 1
 						end
 					end
 				end
@@ -293,30 +298,31 @@ end
 
 function Change(state::GameState, oldgrid::GRID)
 	change = oldgrid - state.grid # Pointwise
-
 	for y in 1:2*state.gh-1
 		for x in 1:2*state.gw-1
 			if change[y, x] > 5
 				state.grid[y, x] = change[y, x]
-				checkAround(state)
+				checkAround(state) 
 			end
 		end
 	end
+	return change
 end
 
 #######################<---REPL GAME MODE--->#######################
 function REPLMODE()
 	spacingx = 8
 	spacingy = 3 # 3 newlines
-	startco = [20, 10]
+	startco = [20, 20]
 	GRIDPOINT = ["+", "██"]
 	HORZLINE = ["-", "="]
 	VERTLINE = ["|"]
 	CURSORCHAR = '0'
+	PLAYERSIGN = ["x", "y"]
 	function CursorInGameMove(state::GameState, cursor::CursorStruct, strgrid::Array)
 		if cursor.x <= 1 && cursor.y%2 != 0
 			cursor.x = 2 # Start here
-		elseif cursor.x <= 1 && cursor.y%2 == 0
+		elseif cursor.x < 1 && cursor.y%2 == 0
 			cursor.x = 1
 		elseif cursor.x >= 2*state.gw-1 && cursor.y%2 != 0
 			cursor.x = 2*state.gw-2
@@ -324,10 +330,10 @@ function REPLMODE()
 			cursor.x = 2*state.gw-1
 		elseif cursor.y > 2*state.gh-1
 			cursor.y = 2*state.gh-1
-		elseif cursor.y == 2*state.gh-1 && cursor.x == 0
-			cursor.x+=2
+			cursor.x += 1
 		elseif cursor.y < 1
 			cursor.y = 1
+			cursor.x -= 1
 		end
 		element = strgrid[cursor.y, cursor.x]
 		element = collect(element)
@@ -363,16 +369,22 @@ function REPLMODE()
 	                if state.grid[y, x] == -1
 	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*GRIDPOINT[1]
 	                    cox += length(GRIDPOINT[1])
-	                elseif state.grid[y, x] == -2
+	                elseif state.grid[y, x] == -2 
 	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*" "
 	                    cox += length(" ")
+	                elseif state.grid[y, x] == 10
+	                	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.red(PLAYERSIGN[1])
+	                	cox += length(PLAYERSIGN[1])
+	                elseif state.grid[y, x] == 20
+	                	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.cyan(PLAYERSIGN[2])
+	                	cox += length(PLAYERSIGN[2])
 	                elseif state.grid[y,x] == 1 # Player 1 -> Red
 	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.red(HORZLINE[1])^spacingx
-	                    cox += length(ANSI.red(HORZLINE[1])^spacingx)
+	                    cox += length((HORZLINE[1])^spacingx)
 	                elseif state.grid[y,x] == 2 # Player 2 -> Blue
-	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.blue(HORZLINE[1])^spacingx
-	                    cox += length(ANSI.blue(HORZLINE[1])^spacingx)
-	                elseif state.grid[y,x] == 0 # No one -> Colorless
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.cyan(HORZLINE[1])^spacingx
+	                    cox += length((HORZLINE[1])^spacingx)
+	                elseif state.grid[y,x] == 0 || state.grid[y,x] == 8 # No one -> Colorless
                     	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*HORZLINE[1]^spacingx
                     	cox += length(HORZLINE[1]^spacingx)
 	                end
@@ -393,13 +405,19 @@ function REPLMODE()
 		                elseif state.grid[y, x] == -2
 		                   	gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*" "
 		                    cox += length(" ")
+		                elseif state.grid[y, x] == 10
+		                	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.red(PLAYERSIGN[1])
+		                	cox += length(PLAYERSIGN[1])
+	                	elseif state.grid[y, x] == 20
+	                		gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.cyan(PLAYERSIGN[2])
+		                	cox += length(PLAYERSIGN[2])
 		                elseif state.grid[y,x] == 1
 		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*ANSI.red(VERTLINE[1])
-		                    cox += length(ANSI.red(VERTLINE[1]))
+		                    cox += spacingx
 		                elseif state.grid[y,x] == 2
-		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*ANSI.blue(VERTLINE[1])
-		                    cox += length(ANSI.red(VERTLINE[1]))
-		                elseif state.grid[y,x] == 0 
+		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*ANSI.cyan(VERTLINE[1])
+		                    cox += spacingx
+		                elseif state.grid[y,x] == 0 || state.grid[y,x] == 8
 	                    	gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*VERTLINE[1]
 	                    	cox += spacingx
 		                end
@@ -456,7 +474,7 @@ function REPLMODE()
 
 		 # Clear entire console screen
     	clearscreen()
-
+    	prevgrid = state.grid[:,:]
     	# Game loop
 		while !state.gameover
 			sleep(0.05)
@@ -493,21 +511,35 @@ function REPLMODE()
 				cursor.x-=2
 				oost = CursorInGameMove(state, cursor, t)
 			elseif key == "Enter"
+				UPDATE = true
+				if state.grid[cursor.y,cursor.x] == 0 || state.grid[cursor.y,cursor.x] == 8
+					state.grid[cursor.y,cursor.x] = state.player
+					cursor.x = 2
+					cursor.y = 1
+					t = GridToPrint(state, startco)				
+					oost = CursorInGameMove(state, cursor, t)
+					if state.player == 1
+						state.player = 2
+					elseif state.player == 2
+						state.player = 1
+					end
+				end
+				
 				# call function Move with state, cursorx, cursor y
 				# determine where on the board cursorx/y is // Same as the cursor output
 				# place in state.grid value of state.player
 				
 			end
 			# Game Logic
-			prevgrid = checkAround(state)
-			Change(state, prevgrid)
+			
 
 
 
 			# Print Output
 			if UPDATE
 				clearscreen()
-
+				Change(state, prevgrid)
+				@show state.player
 				# Grid
 				printarray(state.grid)
 				gridstr = ""
@@ -520,12 +552,12 @@ function REPLMODE()
 
 				# Cursor
 				println(oost)
-				@show oost
-				@show cursor
+				#@show oost
+				#@show cursor
 
 				# Cursor
 				#println(CursorInGameMove(cursor, startco)) 
-
+				prevgrid = checkAround(state)
 				UPDATE = false
 			end
 		end
