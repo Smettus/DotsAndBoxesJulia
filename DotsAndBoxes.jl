@@ -6,7 +6,7 @@
   11   777      5555
  111  777    555555
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 08/05/2021 @1600
+	Last edit: 07/05/2021 @0145
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -198,8 +198,8 @@ end
 
 #######################<---After choice--->#######################
 # TO DO: functions available to all, both GameZero and REPL
-global const GRID_WIDTH = 4
-global const GRID_HEIGHT = 4
+global const GRID_WIDTH = 6
+global const GRID_HEIGHT = 6
 global const GRID = Array{Int}
 
 mutable struct GameState
@@ -302,7 +302,12 @@ function Change(state::GameState, oldgrid::GRID)
 		for x in 1:2*state.gw-1
 			if change[y, x] > 5
 				state.grid[y, x] = change[y, x]
-				checkAround(state) 
+				checkAround(state)
+				if state.player == 1
+						state.player = 2
+					elseif state.player == 2
+						state.player = 1
+				end
 			end
 		end
 	end
