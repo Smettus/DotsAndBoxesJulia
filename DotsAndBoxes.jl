@@ -186,8 +186,8 @@ end
 
 #######################<---After choice--->#######################
 # Functions available to all, both GameZero and REPL
-global const GRID_WIDTH = 4
-global const GRID_HEIGHT = 4
+global const GRID_WIDTH = 5
+global const GRID_HEIGHT = 5
 global const GRID = Array{Int}
 
 mutable struct GameState
@@ -336,14 +336,14 @@ end
 #######################<---REPL GAME MODE--->#######################
 function REPLMODE()
 	# TODO: Make Layout struct
-	spacingx = 8
-	spacingy = 3
-	startco = [20, 20]
+	spacingx = 10
+	#spacingy = 3
+	startco = [1, 2]
 	GRIDPOINT = ["+", "██"]
 	HORZLINE = ["-", "="]
 	VERTLINE = ["|"]
 	CURSORCHAR = '0'
-	PLAYERSIGN = ["x", "y"]
+	PLAYERSIGN = ["1", "2"]
 
 	# Move cursor to discrete places, then return string with cursor to print
 	function CursorInGameMove(state::GameState, cursor::CursorStruct, strgrid::Array)
@@ -415,7 +415,7 @@ function REPLMODE()
 	                end
 	            end
         	else # Even lines
-        		for i in 1:spacingx/2-1 # TODO: make spacingy // here, starts at 0
+        		for i in 1:round(spacingx/2-1)
         			y = Int(y) # Otherwise errors
         			coy+=1
 	        		for x in 1:size(state.grid, 2)
@@ -451,32 +451,45 @@ function REPLMODE()
         return gridprint
 	end
 
-	function Printscore(state::GameState)
+	function PrintInformation(state::GameState, printgrid::Array)
+		a = printgrid[1, end] # Take out the cross element on top row to get coordinate
+		a *= "\x1b[10C" # Move cursor forward by 10
+		if state.player == 1
+				println(a*ANSI.red("Player 1's turn"))
+		elseif state.player == 2
+				println(a*ANSI.cyan("Player 2's turn"))
+		end
+		a *=  "\x1b[1B" # Move cursor down
 		for i in 1:2
-			println("Score Player $i: ", "$(state.score[i])")
+			a *= "\x1b[1B"
+			print(a*"Score Player $i: ", "$(state.score[i])")
 		end
 	end
 
 	function HelpMenu()
 		clearscreen()
-		print::Bool = true
+		printer::Bool = true
 		while true
 			sleep(0.05)
 			key = readinput()
 
-			if print == true
-				println(ANSI.yellow("HELP MENU"))
+			if printer == true
+				print(ANSI.yellow("HELP MENU"))
 				println()
 				println("Movement")
 				println("	Press Z or Up to move the cursor up")
 				println("	Press S or Down to move the cursor down")
 				println("	Press Q or Left to move the cursor to the left")
 				println("	Press D or Right to move the cursor to the right")
+				println("	Press ENTER to color a line")
 				println("Other")
 				println("	Press F2 for settings menu")
+				println("	Press Ctrl-R to reload the game")
+				println("	Press Ctrl-L to reload the screen")
 				println("	Press Ctrl-C to exit game")
+				println()
 				println("	Press ? or F1 to return to the game")
-				print = false
+				printer = false
 			end
 			if key == "?" || key == "F1"
 				break
@@ -486,17 +499,17 @@ function REPLMODE()
 
 	function Settings()
 		clearscreen()
-		print::Bool = true
+		printer::Bool = true
 		while true
 			sleep(0.05)
 			key = readinput()
 
-			if print == true
+			if printer == true
 				println(ANSI.yellow("SETTINGS"))
 				println()
 				println("1:", "Board length =") #TODO, but then state has to be reloaded.
 				println()
-				print = false
+				printer = false
 			end
 			if key == "1"
 
@@ -587,43 +600,42 @@ function REPLMODE()
 					printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
 
 					# Change turns, if no box is completed
-					if boxes == 0
-						if state.player == 1
-							state.player = 2
-						elseif state.player == 2
-							state.player = 1
+					if !state.gameover
+						if boxes == 0
+							if state.player == 1
+								state.player = 2
+							elseif state.player == 2
+								state.player = 1
+							end
 						end
 					end
 				end				
 			end
 		
 			if UPDATE
-				clearscreen()
+				if !state.gameover
+					clearscreen()
 
-				if state.player == 1
-					println(ANSI.red("Player 1's turn"))
-				elseif state.player == 2
-					println(ANSI.cyan("Player 2's turn"))
-				end
-				println()
-				Printscore(state)
+					PrintInformation(state, printstrgrid)
 
-				# Print Grid
-				printarray(state.grid)
-				gridstr = ""
-				for y in 1:size(state.grid, 1)
-					for x in 1:size(state.grid, 2)
-						gridstr*=printstrgrid[y, x]
+					# Print Grid
+					#printarray(printstrgrid)
+					#printarray(state.grid)
+					gridstr = ""
+					for y in 1:size(state.grid, 1)
+						for x in 1:size(state.grid, 2)
+							gridstr*=printstrgrid[y, x]
+						end
 					end
+					println(gridstr)
+
+					# Print Cursor
+					println(printstrcursor)
+
+					checkAround(state) # Can also be placed in elseif enter
+					prevgrid = state.grid[:,:]
+					UPDATE = false
 				end
-				println(gridstr)
-
-				# Print Cursor
-				println(printstrcursor)
-
-				checkAround(state)
-				prevgrid = state.grid[:,:]
-				UPDATE = false
 			end
 		end
 
