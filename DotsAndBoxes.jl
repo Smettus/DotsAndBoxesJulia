@@ -1,4 +1,4 @@
-#######################<---Dots And Boxes V1--->#######################
+#######################<---Dots And Boxes--->#######################
 """
   1  7777777 555555
  111     777 55
@@ -6,7 +6,7 @@
   11   777      5555
  111  777    555555
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 07/05/2021 @0145
+	Last edit: 09/05/2021 @1035
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -15,20 +15,8 @@
 		- Timer
 		- Output of score/game overview to text file
 		- Cool visuals, interface design
-	TO DO
-		Grid Draw:
-		Maken in REPL (+clock/timer rechtsboven)
-		Maken in GameZero
-		
-		NO//Maken in NativeSVG / Pluto (why not)
-		
-		Game Logic:
-		Bot:
-		Lezen Paper
-		YES!!!CHANGE EVERY 2*state.gw -1 thing to size(...)
 """
 #######################<---Startup in REPL--->#######################
-# TO DO: write startup screen (cool, graphics)
 using BenchmarkTools
 using CPUTime
 using GameZero
@@ -239,6 +227,7 @@ function InitiateGrid(state::GameState)
 end
 
 function checkAround(state::GameState)
+	boxcounter = 0
 	around = 0
 	for y in 1:size(state.grid, 1)
 		for x in 1:size(state.grid, 2)
@@ -270,18 +259,22 @@ function checkAround(state::GameState)
 					for dy in -1:2:1
 						if state.grid[y+dy, x] == 6
 							state.grid[y, x] = 20
-							# state.grid[y+dy, x] = 2 do not change yet!
+							boxcounter += 1
+							# state.grid[y+dy, x] = 2 do not change yet! See next for loop
 						elseif state.grid[y+dy, x] == 7
 							state.grid[y, x] = 10
+							boxcounter += 1
 							# state.grid[y+dy, x] = 1 do not change yet!
 						end
 					end
 					for dx in -1:2:1
 						if state.grid[y, x+dx] == 6
 							state.grid[y, x] = 20
+							boxcounter += 1
 							# state.grid[y, x+dx] = 2 do not change yet!
 						elseif state.grid[y, x+dx] == 7
 							state.grid[y, x] = 10
+							boxcounter += 1
 							# state.grid[y, x+dx] = 1 do not change yet!
 						end
 					end
@@ -290,38 +283,35 @@ function checkAround(state::GameState)
 		end
 	end
 
-	# Fix the double crossed boxes -> still not correct
+	# Fix the lines taken, give them to the player who took them
 	for y in 1:size(state.grid, 1)
 		for x in 1:size(state.grid, 2)
 			if state.grid[y, x] == 10
 				for dy in -1:2:1
 					if state.grid[y+dy, x] == 7
 						state.grid[y+dy, x] = 1
-						return 2
 					end
 				end
 				for dx in -1:2:1
 					if state.grid[y, x+dx] == 7
 						state.grid[y, x+dx] = 1
-						return 2
 					end
 				end
 			elseif state.grid[y, x] == 20
 				for dy in -1:2:1
 					if state.grid[y+dy, x] == 6
 						state.grid[y+dy, x] = 2
-						return 2
 					end
 				end
 				for dx in -1:2:1
 					if state.grid[y, x+dx] == 6
 						state.grid[y, x+dx] = 2
-						return 2
 					end
 				end
 			end
 		end
 	end
+	return boxcounter
 end
 
 # Give box to the player who took it
@@ -331,12 +321,10 @@ function Difference(state::GameState, oldgrid::GRID)
 	for y in 1:size(state.grid, 1)
 		for x in 1:size(state.grid, 2)
 			if change[y, x] > 5
-
 				state.grid[y, x] = change[y, x]
 				if checkAround(state) == 2
 					boxes += 2
 				else
-					println("yeet")
 					boxes += 1
 				end
 			end
