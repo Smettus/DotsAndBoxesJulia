@@ -6,7 +6,7 @@
   11   777      5555
  111  777    555555
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 09/05/2021 @1035
+	Last edit: 09/05/2021 @2215
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -17,10 +17,10 @@
 		- Cool visuals, interface design
 """
 #######################<---Startup in REPL--->#######################
-using BenchmarkTools
-using CPUTime
-using GameZero
-using Colors
+#using BenchmarkTools
+#using CPUTime
+#using GameZero
+#using Colors
 
 # --- REPL (Graphics) stuff ---
 # Colors - printstyled is also possible
@@ -186,8 +186,8 @@ end
 
 #######################<---After choice--->#######################
 # Functions available to all, both GameZero and REPL
-global const GRID_WIDTH = 5
-global const GRID_HEIGHT = 5
+global const GRID_WIDTH = 4
+global const GRID_HEIGHT = 4
 global const GRID = Array{Int}
 
 mutable struct GameState
@@ -519,6 +519,23 @@ function REPLMODE()
 		end
 	end
 
+	function EndGame(state::GameState)
+		a = "\x1b[10;20C"
+		if state.score[1] > state.score[2]
+			println(a*"╔────────────────────────╗")
+        	println("║    "*ANSI.red("Player 1 wins!")*"      ║")
+        	println("╚────────────────────────╝")
+		elseif state.score[1] < state.score[2]
+			println(a*"╔────────────────────────╗")
+        	println("║    "*ANSI.cyan("Player 2 wins!")*"      ║")
+        	println("╚────────────────────────╝")
+		else
+			println(a*ANSI.green("DRAW"))
+		end
+		println()
+		println("Press CTRL-R to restart or CTRL-C to exit")
+	end
+
 	# Debugging
 	function printarray(a::Array)
 		println()
@@ -609,13 +626,18 @@ function REPLMODE()
 							end
 						end
 					end
-				end				
+				end		
 			end
 		
 			if UPDATE
+				if state.score[1]+state.score[2] == (state.gh-1)*(state.gw-1)	
+					clearscreen()
+					EndGame(state)
+					UPDATE = false
+					continue
+				end
 				if !state.gameover
 					clearscreen()
-
 					PrintInformation(state, printstrgrid)
 
 					# Print Grid
@@ -645,7 +667,6 @@ function REPLMODE()
 			
 			DotsAndBoxesREPL()
 		else
-			# TODO move cursor to end
 			clearscreen()
 			println("Exit")
 			exit()
