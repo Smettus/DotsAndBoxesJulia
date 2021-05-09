@@ -3,13 +3,12 @@
 **- TODO:**
 
 ~~cursor movement->+-ok (layout struct)~~
-
-**game logic:** 
+  
+   **game logic:** 
 
 ~~checkAround-> +-ok~~
-ENDGAME! / Who won
 
-Score
+    ENDGAME! / Who won + Score
 
 **- BEAUTIFY GAME**
 
