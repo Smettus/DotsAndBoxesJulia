@@ -8,11 +8,11 @@
 
 ~~checkAround-> +-ok~~
 
-   ENDGAME! / Who won + Score
+   ENDGAME! / Who won + **Score**
 
 **- BEAUTIFY GAME**
 
-  Help menu
+  ~~Help menu~~
   
   Clock
 
