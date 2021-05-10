@@ -8,7 +8,7 @@
 
 ~~checkAround-> +-ok~~
 
-   ENDGAME! / Who won + **Score**
+   ~~ENDGAME! / Who won~~ + **Score**
 
 **- BEAUTIFY GAME**
 
