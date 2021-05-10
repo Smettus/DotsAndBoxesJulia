@@ -186,8 +186,8 @@ end
 
 #######################<---After choice--->#######################
 # Functions available to all, both GameZero and REPL
-global const GRID_WIDTH = 6
-global const GRID_HEIGHT = 5
+global const GRID_WIDTH = 4
+global const GRID_HEIGHT = 4
 global const GRID = Array{Int}
 
 mutable struct GameState
@@ -497,24 +497,35 @@ function REPLMODE()
 		end
 	end
 
-	function Settings()
+	function Settings(state::GameState)
 		clearscreen()
+		change::Bool = false
 		printer::Bool = true
 		while true
 			sleep(0.05)
 			key = readinput()
-
+			if key == "1"
+				change = true
+				state.gw += 1
+				printer = true
+			elseif key == "2"
+				change = true
+				state.gh += 1
+				printer = true
+			elseif key == "F2"
+				if change
+					return true
+				else
+					return false
+				end
+			end
 			if printer == true
+				clearscreen()
 				println(ANSI.yellow("SETTINGS"))
 				println()
-				println("1:", "Board length =") #TODO, but then state has to be reloaded.
-				println()
+				println("1: ", "Grid width = $(state.gw)") #TODO, but then state has to be reloaded.
+				println("2: ", "Grid height = $(state.gh)")
 				printer = false
-			end
-			if key == "1"
-
-			elseif key == "F2"
-				break
 			end
 		end
 	end
@@ -580,7 +591,12 @@ function REPLMODE()
 				HelpMenu()
 				UPDATE = true
 			elseif key == "F2"
-				Settings()
+				if Settings(state)
+					state.grid = resetGrid(state.gw, state.gh)
+					InitiateGrid(state)
+					printstrgrid = GridToPrint(state, startco)
+					printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
+				end
 				UPDATE = true
 			elseif key == KEY_Z || key == "Up"
 				UPDATE = true
@@ -642,7 +658,7 @@ function REPLMODE()
 					PrintInformation(state, printstrgrid)
 
 					# Print Grid
-					#printarray(printstrgrid)
+					#printarray(printstrgrid, state)
 					#printarray(state.grid, state)
 					gridstr = ""
 					for y in 1:size(state.grid, 1)
