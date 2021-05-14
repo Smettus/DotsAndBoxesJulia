@@ -381,16 +381,6 @@ end
 #######################<---REPL GAME MODE--->#######################
 function REPLMODE()
 	global SETTINGS
-	# TODO: Make Layout struct
-	startco = [1, 2]
-	spacingx = 16
-	#spacingy = 3
-	GRIDPOINT = "+" # "██"
-	HORZLINE = "-" # "="
-	VERTLINE = "|"
-	CURSORCHAR = '0'
-	PLAYERSIGN = ["Player1", "Player2"]
-
 	# Move cursor to discrete places, then return string with cursor to print
 	function CursorInGameMove(state::GameState, cursor::CursorStruct, strgrid::Array)
 		if cursor.x <= 1 && cursor.y%2 != 0
@@ -447,7 +437,7 @@ function REPLMODE()
 	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.cyan(SETTINGS["HORZLINE"])^SETTINGS["SPACINGX"]
 	                    cox += length(SETTINGS["HORZLINE"]^SETTINGS["SPACINGX"])
 	                elseif state.grid[y,x] == 0 || state.grid[y,x] == 8 # No one -> Colorless
-                    	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*HORZLINE^SETTINGS["SPACINGX"]
+                    	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*SETTINGS["HORZLINE"]^SETTINGS["SPACINGX"]
                     	cox += length(SETTINGS["HORZLINE"]^SETTINGS["SPACINGX"])
 	                end
 	            end
