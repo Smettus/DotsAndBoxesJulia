@@ -190,8 +190,14 @@ function fixsettings()
     	length(s) == 1 && return only(s)
     	return String(s)
 	end
+	function converttoarray(sarr)
+		sarr = sarr[2:end-1]
+		sarr = split(sarr, ",")
+		sarr = parse.(Int, sarr)
+		return sarr
+	end
 	SETTINGS["CURSORCHAR"] = converttochar(SETTINGS["CURSORCHAR"]) #first/last would also work
-	SETTINGS["STARTCO"] = [1, 2]
+	SETTINGS["STARTCO"] = converttoarray(SETTINGS["STARTCO"])
 end
 
 # Output Handling
