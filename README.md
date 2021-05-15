@@ -15,7 +15,7 @@
   ~~Help menu~~
   
   Clock
-  Settings menu
+  Settings menu: to do: skip csv and dataframes, only use delimitedfiles (standard library)
 
 **- ERRORS TO FIX:**
   1. ~~If key pressed isnt recognized in dictionary, don't throw error, just do nothing (ie f1 pressed)~~
