@@ -6,7 +6,7 @@
   11   777      5555
  111  777    555555
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 09/05/2021 @2215
+	Last edit: 15/05/2021 @2010
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -20,10 +20,11 @@
 #using CPUTime
 #using GameZero
 #using Colors
-using CSV 
-using DataFrames
+#using CSV 
+#using DataFrames
+using DelimitedFiles # Part of standard library, way faster than combo csv/dataframes
 
-global SETTINGS = Dict() # Settings to import from csv file
+global SETTINGS = Dict() # Settings to import from csv file on startup
 global BUFFER	# Keyboard input handling
 global const GRID = Array{Int}
 
@@ -54,6 +55,7 @@ struct ANSIColor
     )
 end
 global const ANSI = ANSIColor()
+
 # Keyboard Input
 global const KEY_ESC = "ESC"
 global const KEY_ENTER = "Enter"
@@ -133,12 +135,12 @@ global const ctrl_codes = Dict([
     31 => "Ctrl-7"
 ])
 
-# Settings handling
+# Settings Handling
 function ImportSettings()
     d = Dict()
-	filename = joinpath(@__DIR__, "DotsAndBoxesSettings.csv")
+	filename = joinpath(@__DIR__, "Settings.dnb")
 	if isfile(filename)
-        df = CSV.read(filename, DataFrame)
+        df = df = readdlm(filename, ':')
         for i in 1:size(df, 1)
             if !(df[i, 1] in keys(d))
                 d[df[i,1]] = df[i, 2]
@@ -147,7 +149,7 @@ function ImportSettings()
         return d
 	else
     	CreateSettings(filename)
-        df = CSV.read(filename, DataFrame)
+        df = readdlm(filename, ':')
         for i in 1:size(df, 1)
             if !(df[i, 1] in keys(d))
                 d[df[i,1]] = df[i, 2]
@@ -169,18 +171,35 @@ function CreateSettings(filename::String)
     "VERTLINE" => "|",
     "CURSORCHAR" => '0'
     ])
-    basesett = DataFrame( Setting = ["GRID_WIDTH", "GRID_HEIGHT", "PLAYERSIGN1", "PLAYERSIGN2", "STARTCO", "SPACINGX", "GRIDPOINT", "HORZLINE", "VERTLINE", "CURSORCHAR"],
-                        Value = [BaseSettings["GRID_WIDTH"], BaseSettings["GRID_HEIGHT"], BaseSettings["PLAYERSIGN1"], BaseSettings["PLAYERSIGN2"], BaseSettings["STARTCO"], BaseSettings["SPACINGX"], BaseSettings["GRIDPOINT"], BaseSettings["HORZLINE"], BaseSettings["VERTLINE"], BaseSettings["CURSORCHAR"]])
-    CSV.write(filename, basesett)
+    Setting = []
+    Value = []
+    for key in keys(BaseSettings)
+        push!(Setting, key)
+        push!(Value, BaseSettings[key])
+    end
+    open(filename, "w") do io
+        writedlm(io, [Setting Value], ':')
+    end
 end
 function fixsettings()
 	global SETTINGS
-	SETTINGS["SPACINGX"] = parse(Int, SETTINGS["SPACINGX"])
-	#SETTINGS["CURSORCHAR"] = parse(Char, SETTINGS["CURSORCHAR"])
-	#SETTINGS["STARTCO"] = parse(Array, SETTINGS["STARTCO"])
-	SETTINGS["CURSORCHAR"] = '0'
+	function converttochar(s)
+		if isa(s, Int) || isa(s, Float64)
+			s = string(s)
+		end
+    	length(s) == 1 && return only(s)
+    	return String(s)
+	end
+	SETTINGS["CURSORCHAR"] = converttochar(SETTINGS["CURSORCHAR"]) #first/last would also work
 	SETTINGS["STARTCO"] = [1, 2]
 end
+
+# Output Handling
+function Output()
+
+end
+
+# Keyboard Input
 function Initiate_Keyboard_Input()
 	# https://discourse.julialang.org/t/wait-for-a-keypress/20218/4
 	# https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/#Calling-C-and-Fortran-Code
@@ -213,6 +232,7 @@ function readinput()
     	end
     end
 end
+
 # REPL Graphics Stuff
 # Cursor
 mutable struct CursorStruct
@@ -239,8 +259,8 @@ mutable struct GameState
 	gameover::Bool
 	player::Int # Player turn, 1 or 2
 	score::Array # Score[playerone, playertwo]
-	GameState(	gw = parse(Int, SETTINGS["GRID_WIDTH"]),
-				gh = parse(Int, SETTINGS["GRID_HEIGHT"]),
+	GameState(	gw = SETTINGS["GRID_WIDTH"],
+				gh = SETTINGS["GRID_HEIGHT"],
 				grid = resetGrid(gw, gh),
 				gameover = false,
 				player = 1,
@@ -375,12 +395,29 @@ function Difference(state::GameState, oldgrid::GRID)
 	return boxes
 end
 
-function Bot()
+function Bot(state::GameState)
+	# 4x4 dots -> second player wins, assuming perfect play
 
+	# http://www.gcrhoads.byethost4.com/DotsBoxes/dots_strategy.html?i=1
+
+	#pseudocode to begin:
+	function chainsInGame()
+		# cycles are no chains
+	end
+	n_chains = chainsInGame()
+	LongChainRule = state.gh*state.gw + n_chains
+	if LongChainRule%2 == 0
+		# first player has control
+	else
+		#second player has control
+	end
 end
+
+
 #######################<---REPL GAME MODE--->#######################
 function REPLMODE()
 	global SETTINGS
+
 	# Move cursor to discrete places, then return string with cursor to print
 	function CursorInGameMove(state::GameState, cursor::CursorStruct, strgrid::Array)
 		if cursor.x <= 1 && cursor.y%2 != 0
@@ -487,14 +524,14 @@ function REPLMODE()
 		a = printgrid[1, end] # Take out the cross element on top row to get coordinate
 		a *= "\x1b[10C" # Move cursor forward by 10 spaces
 		if state.player == 1
-				println(a*ANSI.red("Player 1's turn"))
+				println(a*ANSI.red("$(SETTINGS["PLAYERSIGN1"])'s turn"))
 		elseif state.player == 2
-				println(a*ANSI.cyan("Player 2's turn"))
+				println(a*ANSI.cyan("$(SETTINGS["PLAYERSIGN2"])'s turn"))
 		end
 		a *=  "\x1b[1B" # Move cursor down
 		for i in 1:2
 			a *= "\x1b[1B"
-			print(a*"Score Player $i: ", "$(state.score[i])")
+			print(a*"Score of $(SETTINGS["PLAYERSIGN$(i)"]): ", "$(state.score[i])")
 		end
 	end
 
@@ -530,7 +567,6 @@ function REPLMODE()
 	end
 
 	function SettingsREPL(state::GameState)
-		# More beautiful and intuitive -> more code
 		while true
 			sleep(0.05)
 			key = readinput()
@@ -687,7 +723,6 @@ function REPLMODE()
 
 					# Print Cursor
 					println(printstrcursor)
-
 					prevgrid = state.grid[:,:]
 					UPDATE = false
 				end
