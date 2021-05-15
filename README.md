@@ -22,4 +22,4 @@
     ~~-> Semi fix, only F5 doesnt work~~
   2. ~~Cursor can go out of grid (UP/down) and onto crosses.~~
   3. ~~Double-cross boxes~~
-  4. Settings menu: fix cursorsetting + startco
+  4. Settings menu: ~~fix cursorsetting + startco~~
