@@ -8,7 +8,7 @@
 
 ~~checkAround-> +-ok~~
 
-   ~~ENDGAME! / Who won~~ + **Score** + write to file
+   ~~ENDGAME! / Who won~~
 
 **- BEAUTIFY GAME**
 
@@ -17,6 +17,12 @@
   Clock
   
   Settings menu: to do: ~~skip csv and dataframes, only use delimitedfiles (standard library)~~
+  
+    -> American/Swedish/Icelandic board
+  
+  **Score** + write to file
+  
+  
 
 **- ERRORS TO FIX:**
   1. ~~If key pressed isnt recognized in dictionary, don't throw error, just do nothing (ie f1 pressed)~~
