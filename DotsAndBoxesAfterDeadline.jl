@@ -140,7 +140,7 @@ function ImportSettings()
     d = Dict()
 	filename = joinpath(@__DIR__, "Settings.dnb")
 	if isfile(filename)
-        df = df = readdlm(filename, ':')
+        df = readdlm(filename, ':')
         for i in 1:size(df, 1)
             if !(df[i, 1] in keys(d))
                 d[df[i,1]] = df[i, 2]
@@ -164,12 +164,14 @@ function CreateSettings(filename::String)
     "GRID_HEIGHT" => 4,
     "PLAYERSIGN1" => "Player1",
     "PLAYERSIGN2" => "Player2",
+    "PLAYSFIRST" => 1, #put one or two here (1 corresponds to playersign 1)
     "STARTCO" => [1, 2],
     "SPACINGX" => 16,
     "GRIDPOINT" => "+",
     "HORZLINE" => "-",
     "VERTLINE" => "|",
-    "CURSORCHAR" => '0'
+    "CURSORCHAR" => '0',
+    "BOT_ON" => false
     ])
     Setting = []
     Value = []
@@ -177,6 +179,8 @@ function CreateSettings(filename::String)
         push!(Setting, key)
         push!(Value, BaseSettings[key])
     end
+    # sort array?
+
     open(filename, "w") do io
         writedlm(io, [Setting Value], ':')
     end
@@ -187,8 +191,8 @@ function fixsettings()
 		if isa(s, Int) || isa(s, Float64)
 			s = string(s)
 		end
-    	length(s) == 1 && return only(s)
-    	return String(s)
+		s = collect(s)
+		return s[1]
 	end
 	function converttoarray(sarr)
 		sarr = sarr[2:end-1]
@@ -196,13 +200,8 @@ function fixsettings()
 		sarr = parse.(Int, sarr)
 		return sarr
 	end
-	SETTINGS["CURSORCHAR"] = converttochar(SETTINGS["CURSORCHAR"]) #first/last would also work
+	SETTINGS["CURSORCHAR"] = converttochar(SETTINGS["CURSORCHAR"])
 	SETTINGS["STARTCO"] = converttoarray(SETTINGS["STARTCO"])
-end
-
-# Output Handling
-function Output()
-
 end
 
 # Keyboard Input
@@ -269,7 +268,7 @@ mutable struct GameState
 				gh = SETTINGS["GRID_HEIGHT"],
 				grid = resetGrid(gw, gh),
 				gameover = false,
-				player = 1,
+				player = SETTINGS["PLAYSFIRST"],
 				score = [0, 0]
 			) = new(gw, gh, grid, gameover, player, score)
 end
@@ -402,14 +401,81 @@ function Difference(state::GameState, oldgrid::GRID)
 end
 
 function Bot(state::GameState)
+	global SETTINGS # bot needs to knnow who starts
 	# 4x4 dots -> second player wins, assuming perfect play
 
 	# http://www.gcrhoads.byethost4.com/DotsBoxes/dots_strategy.html?i=1
 
+
 	#pseudocode to begin:
+	# boven rechts onder links
 	function chainsInGame()
-		# cycles are no chains
+		teller = 0 #lengte van 1 keten
+		function IsPartOfChain(co)
+			amount = 0
+			x = co[1]
+			y = co[2]
+			CellsAround = [
+				(x, y - 1),
+				(x + 1, y),
+				(x, y + 1),
+		        (x - 1, y)
+		        ]
+	        for j in CellsAround
+	        	if ingrid(j)
+	        		if state.grid(j[2],j[1]) == 1 || state.grid(j[2],j[1]) == 2
+	        			amount += 1
+	        		end
+	        	end
+	        end
+	        if amount > 1
+	        	return true
+	        else
+	        	return false
+	        end
+	    end 
+		
+		function Around(co)
+			x = co[1]
+			y = co[2]
+			CellsAround = [
+				(x,y),
+				(x, y - 1),
+				(x + 1, y),
+				(x, y + 1),
+		        (x - 1, y)
+		        ]
+		    for i in CellsAround
+		    	if ingrid(i) #ook plaatsen waar al gechecked is TODO
+		    		if state.grid[i[2],i[1]] == 0 || state.grid[i[2],i[1]] == 8 || state.grid[i[2],i[1]] == -2
+		    			if i == CellsAround[2]
+		    				i[2] -= 1 
+		    				if ! ingrid(i)
+		    					continue
+		    				else
+		    					if IsPartOfChain(i)
+		    						teller +=1
+		    					else
+		    						continue
+		    					end
+		    					Around(i)
+		    				end
+		    			elseif i == CellsAround[3]
+
+		    			elseif i == CellsAround[4]
+
+		    			elseif i == CellsAround[5]
+
+		    			end
+		    		end
+		    	end
+		    end
+		end
+
+
+
 	end
+
 	n_chains = chainsInGame()
 	LongChainRule = state.gh*state.gw + n_chains
 	if LongChainRule%2 == 0
@@ -417,6 +483,11 @@ function Bot(state::GameState)
 	else
 		#second player has control
 	end
+end
+
+# Output Handling
+function Output(state::GameState)
+	# TODO: write board to file
 end
 
 
