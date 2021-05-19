@@ -411,6 +411,7 @@ function Bot(state::GameState)
 	# boven rechts onder links
 	function chainsInGame()
 		teller = 0 #lengte van 1 keten
+		History = []
 		function IsPartOfChain(co)
 			amount = 0
 			x = co[1]
@@ -447,6 +448,7 @@ function Bot(state::GameState)
 		        ]
 		    for i in CellsAround
 		    	if ingrid(i) #ook plaatsen waar al gechecked is TODO
+		    		push!(History,i)
 		    		if state.grid[i[2],i[1]] == 0 || state.grid[i[2],i[1]] == 8 || state.grid[i[2],i[1]] == -2
 		    			if i == CellsAround[2]
 		    				i[2] -= 1 
@@ -459,6 +461,7 @@ function Bot(state::GameState)
 		    						continue
 		    					end
 		    					Around(i)
+
 		    				end
 		    			elseif i == CellsAround[3]
 
@@ -472,7 +475,13 @@ function Bot(state::GameState)
 		    end
 		end
 
-
+		for y in 1:size(state.grid, 1)
+			for x in 1:size(state.grid, 2)
+				if !((x,y) in History)
+					Around((x,y))
+				end
+			end
+		end
 
 	end
 
@@ -560,7 +569,7 @@ function REPLMODE()
         			y = Int(y) # Otherwise errors
         			coy+=1
         			middlex = Int(round(SETTINGS["SPACINGX"]/2-1))
-        			middley = round(round(SETTINGS["SPACINGX"]/2-1)/2)
+        			middley = round(round(SETTINGS["SPACINGX"]/2)/2)
 	        		for x in 1:size(state.grid, 2)
 		                if state.grid[y, x] == -2
 		                   	gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*" "
@@ -608,8 +617,22 @@ function REPLMODE()
 		a *=  "\x1b[1B" # Move cursor down
 		for i in 1:2
 			a *= "\x1b[1B"
-			print(a*"Score of $(SETTINGS["PLAYERSIGN$(i)"]): ", "$(state.score[i])")
+			println(a*"Score of $(SETTINGS["PLAYERSIGN$(i)"]): ", "$(state.score[i])")
 		end
+		a *= "\x1b[5B"
+		println(a*raw"o-o        o                      o     o--o")
+		a *= "\x1b[1B"
+		println(a*raw"|  \       |                      |     |   |")
+		a *= "\x1b[1B"              
+		println(a*raw"|   O o-o -o- o-o      oo o-o   o-O     O--o  o-o \ / o-o o-o ")
+		a *= "\x1b[1B"
+		println(a*raw"|  /  | |  |   \      | | |  | |  |     |   | | |  o  |-   \ ")
+		a *= "\x1b[1B"
+		println(a*raw"o-o   o-o  o  o-o     o-o-o  o  o-o     o--o  o-o / \ o-o o-o")
+
+		# https://www.messletters.com/en/big-text/
+		# https://www.coolgenerator.com/ascii-text-generator
+                                                     
 	end
 
 	function HelpMenu()
@@ -660,11 +683,11 @@ function REPLMODE()
 		a = "\x1b[10;20C"
 		if state.score[1] > state.score[2]
 			println(a*"╔────────────────────────╗")
-        	println("║    "*ANSI.red("Player 1 wins!")*"      ║")
+        	println("║"*ANSI.red(SETTINGS["PLAYERSIGN1"])*"║") # fix spaces...
         	println("╚────────────────────────╝")
 		elseif state.score[1] < state.score[2]
 			println(a*"╔────────────────────────╗")
-        	println("║    "*ANSI.cyan("Player 2 wins!")*"      ║")
+        	println("║"*ANSI.cyan(SETTINGS["PLAYERSIGN2"])*"║")
         	println("╚────────────────────────╝")
 		else
 			println(a*ANSI.green("DRAW"))
@@ -675,7 +698,8 @@ function REPLMODE()
 
 	# Debugging
 	function printarray(a::Array, state::GameState)
-		for i in 1:(round(SETTINGS["SPACINGX"]/2-1)*(state.gh-1)+state.gh+1-4)
+		println("\33[H")
+		for i in 1:(round(SETTINGS["SPACINGX"]/2-1)*(state.gh-1)+state.gh+1)
 			println()
 		end
 		show(stdout, "text/plain", a)
@@ -788,8 +812,6 @@ function REPLMODE()
 					PrintInformation(state, printstrgrid)
 
 					# Print Grid
-					#printarray(printstrgrid, state)
-					#printarray(state.grid, state)
 					gridstr = ""
 					for y in 1:size(state.grid, 1)
 						for x in 1:size(state.grid, 2)
@@ -797,6 +819,8 @@ function REPLMODE()
 						end
 					end
 					println(gridstr)
+					#printarray(printstrgrid, state)
+					printarray(state.grid, state)
 
 					# Print Cursor
 					println(printstrcursor)
