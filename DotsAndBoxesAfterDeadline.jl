@@ -179,7 +179,7 @@ function CreateSettings(filename::String)
         push!(Setting, key)
         push!(Value, BaseSettings[key])
     end
-    # sort array?
+    # sort array? -> yes
 
     open(filename, "w") do io
         writedlm(io, [Setting Value], ':')
@@ -202,6 +202,7 @@ function fixsettings()
 	end
 	SETTINGS["CURSORCHAR"] = converttochar(SETTINGS["CURSORCHAR"])
 	SETTINGS["STARTCO"] = converttoarray(SETTINGS["STARTCO"])
+	SETTINGS["GRIDPOINT"] = string(SETTINGS["GRIDPOINT"])
 end
 
 # Keyboard Input
@@ -620,15 +621,16 @@ function REPLMODE()
 			println(a*"Score of $(SETTINGS["PLAYERSIGN$(i)"]): ", "$(state.score[i])")
 		end
 		a *= "\x1b[5B"
-		println(a*raw"o-o        o                      o     o--o")
+		o = SETTINGS["GRIDPOINT"]
+		println(a*"$(o)-$(o)        $(o)                      $(o)     $(o)--$(o)")
 		a *= "\x1b[1B"
-		println(a*raw"|  \       |                      |     |   |")
+		println(a*"|  \\       |                      |     |   |")
 		a *= "\x1b[1B"              
-		println(a*raw"|   O o-o -o- o-o      oo o-o   o-O     O--o  o-o \ / o-o o-o ")
+		println(a*"|   $(o) $(o)-$(o) -$(o)- $(o)-$(o)      $(o)$(o) $(o)-$(o)   $(o)-$(o)     $(o)--$(o)  $(o)-$(o) \\ / $(o)-$(o) $(o)-$(o) ")
 		a *= "\x1b[1B"
-		println(a*raw"|  /  | |  |   \      | | |  | |  |     |   | | |  o  |-   \ ")
+		println(a*"|  /  | |  |   \\      | | |  | |  |     |   | | |  $(o)  |-   \\ ")
 		a *= "\x1b[1B"
-		println(a*raw"o-o   o-o  o  o-o     o-o-o  o  o-o     o--o  o-o / \ o-o o-o")
+		println(a*"$(o)-$(o)   $(o)-$(o)  $(o)  $(o)-$(o)     $(o)-$(o)-$(o)  $(o)  $(o)-$(o)     $(o)--$(o)  $(o)-$(o) / \\ $(o)-$(o) $(o)-$(o)")
 
 		# https://www.messletters.com/en/big-text/
 		# https://www.coolgenerator.com/ascii-text-generator
@@ -683,11 +685,11 @@ function REPLMODE()
 		a = "\x1b[10;20C"
 		if state.score[1] > state.score[2]
 			println(a*"╔────────────────────────╗")
-        	println("║"*ANSI.red(SETTINGS["PLAYERSIGN1"])*"║") # fix spaces...
+        	println("║"*ANSI.red(SETTINGS["PLAYERSIGN1"])*"Wins"*"║") # fix spaces...
         	println("╚────────────────────────╝")
 		elseif state.score[1] < state.score[2]
 			println(a*"╔────────────────────────╗")
-        	println("║"*ANSI.cyan(SETTINGS["PLAYERSIGN2"])*"║")
+        	println("║"*ANSI.cyan(SETTINGS["PLAYERSIGN2"])*"Wins"*"║")
         	println("╚────────────────────────╝")
 		else
 			println(a*ANSI.green("DRAW"))
@@ -820,10 +822,17 @@ function REPLMODE()
 					end
 					println(gridstr)
 					#printarray(printstrgrid, state)
-					printarray(state.grid, state)
+					#printarray(state.grid, state)
 
 					# Print Cursor
 					println(printstrcursor)
+
+					# Nicely refresh
+					println("\33[H")
+					for i in 1:(round(SETTINGS["SPACINGX"]/2-1)*(state.gh-1)+state.gh)
+						println()
+					end
+
 					prevgrid = state.grid[:,:]
 					UPDATE = false
 				end
