@@ -94,10 +94,9 @@ function Bot(testarraygrid::Array)
 
 	# boven rechts onder links
 	function chainsInGame(testarraygrid::Array)
-		ketens = 0 # Number of chains
-		keten = Array{Int} # push coordinates of the keten to this array TODO: each column represents coordinates of chains
-		teller = 0 # Lengte van 1 keten
+		Chains = Dict([])
 		History = [] # To keep track of boxes part of chains
+
 
 		function InGrid(co) # TODO: if error is given (out of bounds access error -> return false)
 			if co[1] > 0 && co[2] > 0 && co[1] <= size(testarraygrid, 2) && co[2] <= size(testarraygrid, 1)
@@ -106,7 +105,7 @@ function Bot(testarraygrid::Array)
 				return false
 			end
 		end
-		function IsPartOfChain(co)
+		function IsPartOfChain(co,startco)
 			n_around = 0
 			x = co[1] # for demonstrative purposes
 			y = co[2]
@@ -124,13 +123,14 @@ function Bot(testarraygrid::Array)
 	        	end
 	        end
 	        if n_around == 2 || n_around == 3
+	        	push!(Chains["$(startco)"],co) 
 	        	return true
 	        else
 	        	return false
 	        end
 	    end 
 		# nu andere methode of rond te kijken
-		function Around(co)
+		function Around(co, startco)
 			x = co[1] # for demonstrative purposes
 			y = co[2]
 			# array of array, tuples are immutable
@@ -144,22 +144,24 @@ function Bot(testarraygrid::Array)
 		    for i in CellsAround
 		    	if InGrid(i)
 		    		@show i
-		    		if !(i in History)
-		    			push!(History,i)
-		    		end
+		    		push!(History,i)
 		    		#@show History
-		    		if testarraygrid[i[2],i[1]] == 0 || testarraygrid[i[2],i[1]] == 8 || testarraygrid[i[2],i[1]] == -2 # mag doorgaan
-		    			if i == CellsAround[2]
+		    		if testarraygrid[i[2],i[1]] == 0 || testarraygrid[i[2],i[1]] == 8
+		    			if i == CellsAround[1]
+		    				if !IsPartOfChain(i,startco)
+		    					continue
+		    				end
+		    			elseif i == CellsAround[2]
 		    				i[2] -= 1 # Up
 		    				if !(InGrid(i))
 		    					continue # next iteration
 		    				else
-		    					if IsPartOfChain(i)
-		    						teller += 1
-		    					else
+		    					if !IsPartOfChain(i, startco)
 		    						continue
 		    					end
-		    					Around(i)
+		    					if !(i in History)
+		    						Around(i, startco)
+		    					end
 		    				end
 		    			elseif i == CellsAround[3]
 
@@ -169,33 +171,30 @@ function Bot(testarraygrid::Array)
 
 		    			end
 		    		end
-
-		    	end
-		    	# teller moet eens nul gemaakt worden..... 
-		    	if teller >= 3 
-		    		ketens += 1
-		    		teller = 0
 		    	end
 		    end
 		end
 
 		for y in 1:size(testarraygrid, 1)
 			for x in 1:size(testarraygrid, 2)
-				if !([x,y] in History)
-					println()
-					@show [x,y]
-					Around([x,y])
+				if testarraygrid[y,x] == -2
+					if !([x,y] in History)
+						println()
+                		Chains["$([x,y])"] = []
+						@show [x,y]
+						@show Chains
+						Around([x,y], [x,y])
+					end
 				end
 			end
 		end
-		return ketens, History
+		return Chains
 	end
 
 	Chains = chainsInGame(testarraygrid)
 	return Chains
 	"""
 	n_chains = chainsInGame()
-
 	LongChainRule = state.gh*state.gw + n_chains
 	if LongChainRule%2 == 0
 		# first player has control
