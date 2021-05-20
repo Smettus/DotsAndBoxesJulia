@@ -85,70 +85,81 @@ end
 
 
 
-function Bot(testarray::Array)
+function Bot(testarraygrid::Array)
+
 	global SETTINGS # bot needs to knnow who starts
 	# 4x4 dots -> second player wins, assuming perfect play
 
 	# http://www.gcrhoads.byethost4.com/DotsBoxes/dots_strategy.html?i=1
-	global ketens = 0
 
-	#pseudocode to begin:
 	# boven rechts onder links
-	function chainsInGame()
-		teller = 0 #lengte van 1 keten
-		History = []
+	function chainsInGame(testarraygrid::Array)
+		ketens = 0 # Number of chains
+		keten = Array{Int} # push coordinates of the keten to this array TODO: each column represents coordinates of chains
+		teller = 0 # Lengte van 1 keten
+		History = [] # To keep track of boxes part of chains
+
+		function InGrid(co) # TODO: if error is given (out of bounds access error -> return false)
+			if co[1] > 0 && co[2] > 0 && co[1] <= size(testarraygrid, 2) && co[2] <= size(testarraygrid, 1)
+				return true
+			else
+				return false
+			end
+		end
 		function IsPartOfChain(co)
-			amount = 0
-			x = co[1]
+			n_around = 0
+			x = co[1] # for demonstrative purposes
 			y = co[2]
 			CellsAround = [
-				(x, y - 1),
-				(x + 1, y),
-				(x, y + 1),
-		        (x - 1, y)
-		        ]
+				(x, y-1),
+				(x+1, y),
+				(x, y+1),
+		        (x-1, y)]
+
 	        for j in CellsAround
-	        	if ingrid(j)
-	        		if testarray(j[2],j[1]) == 1 || testarray(j[2],j[1]) == 2
-	        			amount += 1
+	        	if InGrid(j)
+	        		if testarraygrid[j[2],j[1]] == 1 || testarraygrid[j[2],j[1]] == 2
+	        			n_around += 1
 	        		end
 	        	end
 	        end
-	        if amount > 1
+	        if n_around == 2 || n_around == 3
 	        	return true
 	        else
 	        	return false
 	        end
 	    end 
-		
+		# nu andere methode of rond te kijken
 		function Around(co)
-			x = co[1]
+			x = co[1] # for demonstrative purposes
 			y = co[2]
+			# array of array, tuples are immutable
 			CellsAround = [
-				(x,y),
-				(x, y - 1),
-				(x + 1, y),
-				(x, y + 1),
-		        (x - 1, y)
-		        ]
+				[x,y],
+				[x, y-1],
+				[x+1, y],
+				[x, y+1],
+		        [x-1, y]]
+
 		    for i in CellsAround
-		    	if ingrid(i) #ook plaatsen waar al gechecked is TODO
-		    		push!(History,i)
-		    		if testarraygrid[i[2],i[1]] == 0 || testarraygrid[i[2],i[1]] == 8 || testarraygrid[i[2],i[1]] == -2
+		    	if InGrid(i)
+		    		@show i
+		    		if !(i in History)
+		    			push!(History,i)
+		    		end
+		    		#@show History
+		    		if testarraygrid[i[2],i[1]] == 0 || testarraygrid[i[2],i[1]] == 8 || testarraygrid[i[2],i[1]] == -2 # mag doorgaan
 		    			if i == CellsAround[2]
-		    				i[2] -= 1 
-		    				if ! ingrid(i)
-		    					continue
+		    				i[2] -= 1 # Up
+		    				if !(InGrid(i))
+		    					continue # next iteration
 		    				else
 		    					if IsPartOfChain(i)
-		    						teller +=1
+		    						teller += 1
 		    					else
 		    						continue
 		    					end
 		    					Around(i)
-		    					if teller >= 3 
-		    						ketens += 1
-		    					end
 		    				end
 		    			elseif i == CellsAround[3]
 
@@ -158,20 +169,30 @@ function Bot(testarray::Array)
 
 		    			end
 		    		end
+
+		    	end
+		    	# teller moet eens nul gemaakt worden..... 
+		    	if teller >= 3 
+		    		ketens += 1
+		    		teller = 0
 		    	end
 		    end
 		end
 
 		for y in 1:size(testarraygrid, 1)
 			for x in 1:size(testarraygrid, 2)
-				if !((x,y) in History)
-					Around((x,y))
+				if !([x,y] in History)
+					println()
+					@show [x,y]
+					Around([x,y])
 				end
 			end
 		end
-		
-
+		return ketens, History
 	end
+
+	Chains = chainsInGame(testarraygrid)
+	return Chains
 	"""
 	n_chains = chainsInGame()
 
@@ -182,7 +203,6 @@ function Bot(testarray::Array)
 		#second player has control
 	end
 	"""
-	return ketens
 end
 
 
@@ -203,6 +223,6 @@ function test()
 
 	printarray(arr)
 
-	@show Bot(arr)
+	println(Bot(arr))
 end
 test()
