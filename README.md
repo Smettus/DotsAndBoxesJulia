@@ -1,5 +1,17 @@
 # DotsAndBoxesJulia
 
+
+**Bot**
+
+chain counter
+
+basic strategy
+
+minimax
+
+
+
+
 **- TODO:**
 
 ~~cursor movement->+-ok (layout struct)~~
