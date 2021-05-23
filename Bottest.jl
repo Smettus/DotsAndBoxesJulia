@@ -85,100 +85,150 @@ end
 
 
 
-function Bot(testarraygrid::Array)
-
+function Bot(grid::Array)
 	global SETTINGS # bot needs to knnow who starts
 	# 4x4 dots -> second player wins, assuming perfect play
-
 	# http://www.gcrhoads.byethost4.com/DotsBoxes/dots_strategy.html?i=1
 
-	# boven rechts onder links
-	function chainsInGame(testarraygrid::Array)
-		Chains = Dict([])
-		History = [] # To keep track of boxes part of chains
+	function chainsInGame(grid::Array)
+		Chains = Dict([])	# To keep track of chains
+		History = []	# To keep track of places checked
 
 
-		function InGrid(co) # TODO: if error is given (out of bounds access error -> return false)
-			if co[1] > 0 && co[2] > 0 && co[1] <= size(testarraygrid, 2) && co[2] <= size(testarraygrid, 1)
+		function InGrid(co)
+			if co[1] > 0 && co[2] > 0 && co[1] <= size(grid, 2) && co[2] <= size(grid, 1)
 				return true
 			else
 				return false
 			end
 		end
-		function IsPartOfChain(co,startco)
-			n_around = 0
-			x = co[1] # for demonstrative purposes
+		function IsPartOfChain(co)
+			# Other method to look around
+			x = co[1] # For demonstrative purposes
 			y = co[2]
 			CellsAround = [
 				(x, y-1),
 				(x+1, y),
 				(x, y+1),
 		        (x-1, y)]
+		    n_around = 0
 
-	        for j in CellsAround
-	        	if InGrid(j)
-	        		if testarraygrid[j[2],j[1]] == 1 || testarraygrid[j[2],j[1]] == 2
+	        for cell in CellsAround
+	        	if InGrid(cell)
+	        		if grid[cell[2],cell[1]] == 1 || grid[cell[2],cell[1]] == 2
 	        			n_around += 1
 	        		end
 	        	end
 	        end
 	        if n_around == 2 || n_around == 3
-	        	push!(Chains["$(startco)"],co) 
+	        	# push was done here, but not right
 	        	return true
 	        else
 	        	return false
 	        end
 	    end 
-		# nu andere methode of rond te kijken
+
 		function Around(co, startco)
-			x = co[1] # for demonstrative purposes
+			x = co[1] # For demonstrative purposes
 			y = co[2]
-			# array of array, tuples are immutable
+			# Array of arrays (tuples are immutable)
 			CellsAround = [
 				[x,y],
 				[x, y-1],
 				[x+1, y],
 				[x, y+1],
 		        [x-1, y]]
-
-		    for i in CellsAround
-		    	if InGrid(i)
-		    		@show i
-		    		push!(History,i)
-		    		#@show History
-		    		if testarraygrid[i[2],i[1]] == 0 || testarraygrid[i[2],i[1]] == 8
-		    			if i == CellsAround[1]
-		    				if !IsPartOfChain(i,startco)
+		    # Mistake found: didn't add -2
+		    for cell in CellsAround
+		    	@show cell
+		    	@show Chains
+		    	if InGrid(cell)
+		    		@show History	
+		    		if grid[cell[2],cell[1]] == 0 || grid[cell[2],cell[1]] == 8 || grid[cell[2],cell[1]] == -2 
+		    			if cell == CellsAround[1]
+		    				if !IsPartOfChain(cell)
+		    					push!(History,cell)
 		    					continue
+		    				elseif !(cell in History)
+		    					push!(History,cell)
 		    				end
-		    			elseif i == CellsAround[2]
-		    				i[2] -= 1 # Up
-		    				if !(InGrid(i))
-		    					continue # next iteration
+		    			elseif cell == CellsAround[2]
+		    				cell[2] -= 1 # Move up
+		    				if !InGrid(cell)
+		    					continue
 		    				else
-		    					if !IsPartOfChain(i, startco)
+		    					if !IsPartOfChain(cell)
+		    						push!(History,cell)
 		    						continue
+		    					elseif !(cell in History)
+		    						push!(Chains["$(startco)"],cell) # Tie current coordinate to array in dictionary - make chain of coordinates which are part of chain
 		    					end
-		    					if !(i in History)
-		    						Around(i, startco)
+		    					if !(cell in History)
+		    						push!(History,cell)
+		    						Around(cell, startco)
 		    					end
 		    				end
-		    			elseif i == CellsAround[3]
-
-		    			elseif i == CellsAround[4]
-
-		    			elseif i == CellsAround[5]
-
+		    			elseif cell == CellsAround[3]
+		    				cell[1] += 1
+		    				if !InGrid(cell)
+		    					continue
+		    				else
+		    					if !IsPartOfChain(cell)
+		    						push!(History,cell)
+		    						continue
+		    					elseif !(cell in History)
+		    						push!(Chains["$(startco)"],cell)
+		    					end
+		    					if !(cell in History)
+		    						push!(History,cell)
+		    						Around(cell, startco)
+		    					end
+		    				end
+		    			elseif cell == CellsAround[4]
+		    				cell[2] += 1
+		    				if !InGrid(cell)
+		    					continue
+		    				else
+		    					if !IsPartOfChain(cell)
+		    						push!(History,cell)
+		    						continue
+		    					elseif !(cell in History)
+		    						push!(Chains["$(startco)"],cell)
+		    					end
+		    					if !(cell in History)
+		    						push!(History,cell)
+		    						Around(cell, startco)
+		    					end
+		    				end
+		    			elseif cell == CellsAround[5]
+		    				cell[1] -= 1
+		    				if !InGrid(cell)
+		    					continue
+		    				else
+		    					if !IsPartOfChain(cell)
+		    						push!(History,cell)
+		    						continue
+		    					elseif !(cell in History)
+		    						push!(Chains["$(startco)"],cell)
+		    					end
+		    					if !(cell in History)
+		    						push!(History,cell)
+		    						Around(cell, startco)
+		    					end
+		    				end
 		    			end
 		    		end
 		    	end
 		    end
 		end
 
-		for y in 1:size(testarraygrid, 1)
-			for x in 1:size(testarraygrid, 2)
-				if testarraygrid[y,x] == -2
-					if !([x,y] in History)
+		for y in 1:size(grid, 1)
+			for x in 1:size(grid, 2)
+				if grid[y,x] == -2 && IsPartOfChain([x,y])
+					# another mistake: if -2, and no partofchain to begin, than just dont do it 
+					#-> fixed by doing ispartofchain here, but changed ispartofchain: 
+					# coordinate pushing now done later
+					if !([x,y] in History) 
 						println()
                 		Chains["$([x,y])"] = []
 						@show [x,y]
@@ -191,8 +241,29 @@ function Bot(testarraygrid::Array)
 		return Chains
 	end
 
-	Chains = chainsInGame(testarraygrid)
+
+	function minimax(grid::GRID, depth::Int, isMax::Bool, scores::Array, h_max::Int)
+		
+
+		if depth == h_max
+			return scores;
+		end
+
+		if isMax
+			# Maximizing player
+
+		else
+			# Minimizing player
+
+
+		end
+		
+	end
+
+	Chains = chainsInGame(grid)
 	return Chains
+
+
 	"""
 	n_chains = chainsInGame()
 	LongChainRule = state.gh*state.gw + n_chains
@@ -213,15 +284,14 @@ end
 function test()
 	clearscreen()
 	arr = [-1  1 -1  1 -1  1 -1;
-			1 -2  0 -2  1 -2 1;
+			1 -2  8 -2  1 -2 1;  
 		   -1  0 -1  1 -1  0 -1;
 		1 -2 1 -2 0 -2 1;
-		-1 0 -1 1 -1 1 -1;
-		0 -2 0 -2 0 -2 0;
-		-1 0 -1 0 -1 0 -1]
+		-1 1 -1 1 -1 1 -1;
+		2 -2 0 -2 0 -2 2;
+		-1 1 -1 1 -1 2 -1]
 
 	printarray(arr)
-
-	println(Bot(arr))
+	println("->", Bot(arr))
 end
 test()
