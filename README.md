@@ -3,7 +3,7 @@
 
 **Bot**
 
-chain counter
+~~chain counter~~
 
 basic strategy
 
