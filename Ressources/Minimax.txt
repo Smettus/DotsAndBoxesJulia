@@ -1,0 +1,9 @@
+Minimax
+
+https://www.youtube.com/watch?v=l-hh51ncgDI
+https://www.youtube.com/watch?v=STjW3eH0Cik
+
+https://www.geeksforgeeks.org/?p=138193
+
+voorbeeld op tic tac toe
+https://www.youtube.com/watch?v=trKjYdBASyQ&t=652s
