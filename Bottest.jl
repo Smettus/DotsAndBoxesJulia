@@ -1,7 +1,35 @@
+using DelimitedFiles
+
 global SETTINGS = Dict() # Settings to import from csv file on startup
 global BUFFER	# Keyboard input handling
 global const GRID = Array{Int}
-
+struct ANSIColor
+    red::Function
+    bright_red::Function
+    green::Function
+    blue::Function
+    bright_blue::Function
+    yellow::Function
+    magenta::Function
+    cyan::Function
+    white::Function
+    black::Function
+    rgb::Function
+    ANSIColor() = new(
+        c -> "\e[31m$c\e[0m", # Red
+        c -> "\e[31;1m$c\e[0m", # Bright red
+        c -> "\e[32m$c\e[0m", # Green
+        c -> "\e[34m$c\e[0m", # Blue
+        c -> "\e[34;1m$c\e[0m", # Bright blue
+        c -> "\e[33m$c\e[0m", # Yellow
+        c -> "\e[35m$c\e[0m", # Magenta
+        c -> "\e[36m$c\e[0m", # Cyan
+        c -> "\e[37m$c\e[0m", # White
+        c -> "\e[40m$c\e[0m", # Black
+        c -> "\x1b[38;2;55;223;206m" #test RGB
+    )
+end
+global const ANSI = ANSIColor()
 
 hidecursor() = print("\e[?25l") # Or \x1b[?25l
 showcursor() = println("\e[?25h")
@@ -81,8 +109,72 @@ function fixsettings()
 	end
 	SETTINGS["CURSORCHAR"] = converttochar(SETTINGS["CURSORCHAR"])
 	SETTINGS["STARTCO"] = converttoarray(SETTINGS["STARTCO"])
+	SETTINGS["GRIDPOINT"] = string(SETTINGS["GRIDPOINT"])
 end
 
+function GridToPrint(grid::Array, co::Array)
+		cox = co[1]
+		coy = co[2]
+
+		gridprint = fill("", (size(grid, 1), size(grid, 2)))
+        for y in 1:size(grid, 1)
+        	if y%2 != 0 # Uneven lines (with dots)
+	            for x in 1:size(grid, 2)
+	                if grid[y, x] == -1
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*SETTINGS["GRIDPOINT"]
+	                    cox += length(SETTINGS["GRIDPOINT"])
+	                elseif grid[y,x] == 1 # Player 1 -> Red
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.red(SETTINGS["HORZLINE"])^SETTINGS["SPACINGX"]
+	                    cox += length(SETTINGS["HORZLINE"]^SETTINGS["SPACINGX"])
+	                elseif grid[y,x] == 2 # Player 2 -> Blue
+	                    gridprint[y, x] = "\x1b[$(coy);$(cox)H"*ANSI.cyan(SETTINGS["HORZLINE"])^SETTINGS["SPACINGX"]
+	                    cox += length(SETTINGS["HORZLINE"]^SETTINGS["SPACINGX"])
+	                elseif grid[y,x] == 0 || grid[y,x] == 8 # No one -> Colorless
+                    	gridprint[y, x] = "\x1b[$(coy);$(cox)H"*SETTINGS["HORZLINE"]^SETTINGS["SPACINGX"]
+                    	cox += length(SETTINGS["HORZLINE"]^SETTINGS["SPACINGX"])
+	                end
+	            end
+        	else # Even lines
+        		for i in 1:round(SETTINGS["SPACINGX"]/2-1)
+        			y = Int(y) # Otherwise errors
+        			coy+=1
+        			middlex = Int(round(SETTINGS["SPACINGX"]/2-1))
+        			middley = round(round(SETTINGS["SPACINGX"]/2)/2)
+	        		for x in 1:size(grid, 2)
+		                if grid[y, x] == -2
+		                   	gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*" "
+		                    cox += length(" ")
+		                elseif grid[y, x] == 10
+		                	middlesign = Int(round(length(SETTINGS["PLAYERSIGN1"])/2))
+		                	if i == middley
+		                		gridprint[y, x] = "\x1b[$(coy);$(cox-middlex-middlesign)H"*ANSI.red(SETTINGS["PLAYERSIGN1"])
+		                	end
+		                	cox += 1
+	                	elseif grid[y, x] == 20
+	                		middlesign = Int(round(length(SETTINGS["PLAYERSIGN2"])/2))
+	                		if i == middley
+	                			gridprint[y, x] = "\x1b[$(coy);$(cox-middlex-middlesign)H"*ANSI.cyan(SETTINGS["PLAYERSIGN2"])
+	                		end
+		                	cox += 1
+		                elseif grid[y,x] == 1
+		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*ANSI.red(SETTINGS["VERTLINE"])
+		                    cox += SETTINGS["SPACINGX"]
+		                elseif grid[y,x] == 2
+		                    gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*ANSI.cyan(SETTINGS["VERTLINE"])
+		                    cox += SETTINGS["SPACINGX"]
+		                elseif grid[y,x] == 0 || grid[y,x] == 8
+	                    	gridprint[y, x] *= "\x1b[$(coy);$(cox)H"*SETTINGS["VERTLINE"]
+	                    	cox += SETTINGS["SPACINGX"]
+		                end
+		            end
+		            cox = co[1]
+	        	end
+	        	coy+=1
+	        end
+            cox = co[1]
+        end
+        return gridprint
+	end
 
 
 function Bot(grid::Array)
@@ -121,7 +213,6 @@ function Bot(grid::Array)
 	        	end
 	        end
 	        if n_around == 2 || n_around == 3
-	        	# push was done here, but not right
 	        	return true
 	        else
 	        	return false
@@ -138,12 +229,8 @@ function Bot(grid::Array)
 				[x+1, y],
 				[x, y+1],
 		        [x-1, y]]
-		    # Mistake found: didn't add -2
 		    for cell in CellsAround
-		    	@show cell
-		    	@show Chains
 		    	if InGrid(cell)
-		    		@show History	
 		    		if grid[cell[2],cell[1]] == 0 || grid[cell[2],cell[1]] == 8 || grid[cell[2],cell[1]] == -2 
 		    			if cell == CellsAround[1]
 		    				if !IsPartOfChain(cell)
@@ -161,7 +248,7 @@ function Bot(grid::Array)
 		    						push!(History,cell)
 		    						continue
 		    					elseif !(cell in History)
-		    						push!(Chains["$(startco)"],cell) # Tie current coordinate to array in dictionary - make chain of coordinates which are part of chain
+		    						push!(Chains["$(startco)"],cell) # Tie current coordinate to array in dictionary - make chain of coordinates
 		    					end
 		    					if !(cell in History)
 		    						push!(History,cell)
@@ -224,23 +311,14 @@ function Bot(grid::Array)
 
 		for y in 1:size(grid, 1)
 			for x in 1:size(grid, 2)
-				if grid[y,x] == -2 && IsPartOfChain([x,y])
-					# another mistake: if -2, and no partofchain to begin, than just dont do it 
-					#-> fixed by doing ispartofchain here, but changed ispartofchain: 
-					# coordinate pushing now done later
-					if !([x,y] in History) 
-						println()
-                		Chains["$([x,y])"] = []
-						@show [x,y]
-						@show Chains
-						Around([x,y], [x,y])
-					end
+				if grid[y,x] == -2 && IsPartOfChain([x,y]) && !([x,y] in History)
+            		Chains["$([x,y])"] = []
+					Around([x,y], [x,y])
 				end
 			end
 		end
 		return Chains
 	end
-
 
 	function minimax(grid::GRID, depth::Int, isMax::Bool, scores::Array, h_max::Int)
 		
@@ -254,7 +332,6 @@ function Bot(grid::Array)
 
 		else
 			# Minimizing player
-
 
 		end
 		
@@ -278,20 +355,39 @@ end
 
 function printarray(a::Array)
 		println("\33[H")
+
+		for i in 1:(round(SETTINGS["SPACINGX"]/2-1)*(4-1)+4+1)
+			println()
+		end
+		println()
+		println()
 		show(stdout, "text/plain", a)
 end
 
 function test()
+	global SETTINGS
+		SETTINGS = ImportSettings()
+		fixsettings()
+
 	clearscreen()
-	arr = [-1  1 -1  1 -1  1 -1;
-			1 -2  8 -2  1 -2 1;  
-		   -1  0 -1  1 -1  0 -1;
-		1 -2 1 -2 0 -2 1;
-		-1 1 -1 1 -1 1 -1;
-		2 -2 0 -2 0 -2 2;
-		-1 1 -1 1 -1 2 -1]
+	arr = [-1   1  -1   2  -1   0  -1;
+			1  -2   1  -2   1  -2   0;  
+		   -1   0  -1   0  -1   0  -1;
+			2  -2   0  -2   2  -2   0;
+		   -1   1  -1   1  -1   0  -1;
+			0  -2   0  -2   0  -2   0;
+		   -1   0  -1   0  -1   0  -1]
 
 	printarray(arr)
+	printstrgrid = GridToPrint(arr, SETTINGS["STARTCO"])
+	gridstr = ""
+	for y in 1:size(arr, 1)
+		for x in 1:size(arr, 2)
+			gridstr*=printstrgrid[y, x]
+		end
+	end
+	println(gridstr)
+
 	println("->", Bot(arr))
 end
 test()

@@ -5,8 +5,9 @@
   11    777  555555
   11   777      5555
  111  777    555555
+
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 15/05/2021 @2010
+	Last edit: 24/05/2021 @0900
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -15,6 +16,9 @@
 		- Timer
 		- Output of score/game overview to text file
 		- Cool visuals, interface design
+
+		- Ctrl-z undo move -> Save moves to a dictionary? + print next to grid the history of moves?
+		- Ctrl-s save game to file
 """
 #using BenchmarkTools
 #using CPUTime
@@ -142,7 +146,7 @@ function ImportSettings()
 	if isfile(filename)
         df = readdlm(filename, ':')
         for i in 1:size(df, 1)
-            if !(df[i, 1] in keys(d))
+            if !(df[i, 1] in keys(d)) # todo: haskey()
                 d[df[i,1]] = df[i, 2]
             end
         end
@@ -164,9 +168,9 @@ function CreateSettings(filename::String)
     "GRID_HEIGHT" => 4,
     "PLAYERSIGN1" => "Player1",
     "PLAYERSIGN2" => "Player2",
-    "PLAYSFIRST" => 1, #put one or two here (1 corresponds to playersign 1)
+    "PLAYSFIRST" => 1, # Put one or two here (1 corresponds to playersign 1)
     "STARTCO" => [1, 2],
-    "SPACINGX" => 16,
+    "SPACINGX" => 18,
     "GRIDPOINT" => "+",
     "HORZLINE" => "-",
     "VERTLINE" => "|",
@@ -179,10 +183,10 @@ function CreateSettings(filename::String)
         push!(Setting, key)
         push!(Value, BaseSettings[key])
     end
-    # sort array? -> yes
-
+    # Sort array? -> yes
+    s = sortslices([Setting Value], dims=1)
     open(filename, "w") do io
-        writedlm(io, [Setting Value], ':')
+        writedlm(io, s, ':')
     end
 end
 function fixsettings()
@@ -299,11 +303,11 @@ function checkAround(state::GameState)
 	around = 0
 	for y in 1:size(state.grid, 1)
 		for x in 1:size(state.grid, 2)
-		around = 0
+			around = 0
 			if state.grid[y, x] == -2
 				# Up-Down Left-Right
 				for dy in -1:2:1
-					if !(state.grid[y+dy, x] == 0 || state.grid[y+dy, x] == 8)# player one or two doestn care
+					if !(state.grid[y+dy, x] == 0 || state.grid[y+dy, x] == 8)
 						around+=1
 					end
 				end
@@ -401,98 +405,26 @@ function Difference(state::GameState, oldgrid::GRID)
 	return boxes
 end
 
-function Bot(state::GameState)
-	global SETTINGS # bot needs to knnow who starts
-	# 4x4 dots -> second player wins, assuming perfect play
+function checkWinner(state::GameState)
 
-	# http://www.gcrhoads.byethost4.com/DotsBoxes/dots_strategy.html?i=1
+end
 
-
-	#pseudocode to begin:
-	# boven rechts onder links
-	function chainsInGame()
-		teller = 0 #lengte van 1 keten
-		History = []
-		function IsPartOfChain(co)
-			amount = 0
-			x = co[1]
-			y = co[2]
-			CellsAround = [
-				(x, y - 1),
-				(x + 1, y),
-				(x, y + 1),
-		        (x - 1, y)
-		        ]
-	        for j in CellsAround
-	        	if ingrid(j)
-	        		if state.grid(j[2],j[1]) == 1 || state.grid(j[2],j[1]) == 2
-	        			amount += 1
-	        		end
-	        	end
-	        end
-	        if amount > 1
-	        	return true
-	        else
-	        	return false
-	        end
-	    end 
-		
-		function Around(co)
-			x = co[1]
-			y = co[2]
-			CellsAround = [
-				(x,y),
-				(x, y - 1),
-				(x + 1, y),
-				(x, y + 1),
-		        (x - 1, y)
-		        ]
-		    for i in CellsAround
-		    	if ingrid(i) #ook plaatsen waar al gechecked is TODO
-		    		push!(History,i)
-		    		if state.grid[i[2],i[1]] == 0 || state.grid[i[2],i[1]] == 8 || state.grid[i[2],i[1]] == -2
-		    			if i == CellsAround[2]
-		    				i[2] -= 1 
-		    				if ! ingrid(i)
-		    					continue
-		    				else
-		    					if IsPartOfChain(i)
-		    						teller +=1
-		    					else
-		    						continue
-		    					end
-		    					Around(i)
-
-		    				end
-		    			elseif i == CellsAround[3]
-
-		    			elseif i == CellsAround[4]
-
-		    			elseif i == CellsAround[5]
-
-		    			end
-		    		end
-		    	end
-		    end
-		end
-
+function BOT(state::GameState)
+	function available(state::GameState)
+		legalmoves = []
 		for y in 1:size(state.grid, 1)
 			for x in 1:size(state.grid, 2)
-				if !((x,y) in History)
-					Around((x,y))
+				if state.grid[y, x] == 0 || state.grid[y, x] == 8
+					push!(legalmoves, [y, x])
 				end
 			end
 		end
-
+		return legalmoves
 	end
+	possible = available(state)
+	move = possible[rand(1:size(possible, 1))]
 
-	n_chains = chainsInGame()
-	LongChainRule = state.gh*state.gw + n_chains
-	if LongChainRule%2 == 0
-		# first player has control
-	else
-		#second player has control
-	end
+	state.grid[move[1], move[2]] = state.player
 end
 
 # Output Handling
@@ -610,17 +542,6 @@ function REPLMODE()
 	function PrintInformation(state::GameState, printgrid::Array)
 		a = printgrid[1, end] # Take out the cross element on top row to get coordinate
 		a *= "\x1b[10C" # Move cursor forward by 10 spaces
-		if state.player == 1
-				println(a*ANSI.red("$(SETTINGS["PLAYERSIGN1"])'s turn"))
-		elseif state.player == 2
-				println(a*ANSI.cyan("$(SETTINGS["PLAYERSIGN2"])'s turn"))
-		end
-		a *=  "\x1b[1B" # Move cursor down
-		for i in 1:2
-			a *= "\x1b[1B"
-			println(a*"Score of $(SETTINGS["PLAYERSIGN$(i)"]): ", "$(state.score[i])")
-		end
-		a *= "\x1b[5B"
 		o = SETTINGS["GRIDPOINT"]
 		println(a*"$(o)-$(o)        $(o)                      $(o)     $(o)--$(o)")
 		a *= "\x1b[1B"
@@ -631,6 +552,25 @@ function REPLMODE()
 		println(a*"|  /  | |  |   \\      | | |  | |  |     |   | | |  $(o)  |-   \\ ")
 		a *= "\x1b[1B"
 		println(a*"$(o)-$(o)   $(o)-$(o)  $(o)  $(o)-$(o)     $(o)-$(o)-$(o)  $(o)  $(o)-$(o)     $(o)--$(o)  $(o)-$(o) / \\ $(o)-$(o) $(o)-$(o)")
+
+		k = 5 - Int(round(SETTINGS["SPACINGX"]/2-1))
+		if k >= 0
+			a = printgrid[3+k, end]
+			a *= "\x1b[10C"
+		else
+			a = printgrid[3, end]
+			a *= "\x1b[10C"
+		end
+		if state.player == 1
+				println(a*ANSI.red("$(SETTINGS["PLAYERSIGN1"])'s turn"))
+		elseif state.player == 2
+				println(a*ANSI.cyan("$(SETTINGS["PLAYERSIGN2"])'s turn"))
+		end
+		a *=  "\x1b[1B" # Move cursor down
+		for i in 1:2
+			a *= "\x1b[1B"
+			println(a*"Score of $(SETTINGS["PLAYERSIGN$(i)"]): ", "$(state.score[i])")
+		end
 
 		# https://www.messletters.com/en/big-text/
 		# https://www.coolgenerator.com/ascii-text-generator
@@ -683,14 +623,16 @@ function REPLMODE()
 
 	function EndGame(state::GameState)
 		a = "\x1b[10;20C"
+		d = 7
+		text = " wins!!"
 		if state.score[1] > state.score[2]
-			println(a*"╔────────────────────────╗")
-        	println("║"*ANSI.red(SETTINGS["PLAYERSIGN1"])*"Wins"*"║") # fix spaces...
-        	println("╚────────────────────────╝")
+			println(a*"╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╗")
+        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN1"]*text)*" "^d*"║") # fix spaces...
+        	println("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╝")
 		elseif state.score[1] < state.score[2]
-			println(a*"╔────────────────────────╗")
-        	println("║"*ANSI.cyan(SETTINGS["PLAYERSIGN2"])*"Wins"*"║")
-        	println("╚────────────────────────╝")
+			println(a*"╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╗")
+        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN2"]*text)*" "^d*"║") # fix spaces...
+        	println("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╝")
 		else
 			println(a*ANSI.green("DRAW"))
 		end
@@ -712,12 +654,14 @@ function REPLMODE()
 		global SETTINGS
 		SETTINGS = ImportSettings()
 		fixsettings()
+
 		state::GameState = GameState()
+		InitiateGrid(state)
 
 		UPDATE::Bool = true 	# Only update screen if something has happened (ie key press)
+		ENDGAME::Bool = false
 		RESTART::Bool = false	# To play directly again
 
-		InitiateGrid(state)
 		Initiate_Keyboard_Input()
 		cursor = CursorStruct(2, 1)
 
@@ -740,7 +684,7 @@ function REPLMODE()
 				RESTART = true
 			elseif key == "Ctrl-C"
 				state.gameover = true
-			elseif key == "Ctrl-L" # Refresh
+			elseif key == "Ctrl-L" # Refresh -> not needed actually
 				UPDATE = true
 			elseif key == "?" || key == "F1"
 				HelpMenu()
@@ -770,9 +714,32 @@ function REPLMODE()
 				UPDATE = true
 				cursor.x -= 2
 				printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
-			elseif key == KEY_ENTER
+			elseif key == "Tab" && !ENDGAME
 				UPDATE = true
-				if state.grid[cursor.y,cursor.x] == 0 || state.grid[cursor.y,cursor.x] == 8
+				# Bot makes move, even if Settings BOT_ON = false
+
+				println("BOT")
+				BOT(state)
+
+				boxes = Difference(state, prevgrid)
+				checkAround(state)
+
+				# Update the score
+				state.score[state.player] += boxes
+
+				printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])	# Update the grid (to later print) here, so that the function on next line can take the right information		
+				printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
+
+				if boxes == 0
+					if state.player == 1
+						state.player = 2
+					elseif state.player == 2
+						state.player = 1
+					end
+				end	
+			elseif key == KEY_ENTER && !ENDGAME
+				UPDATE = true
+				if state.grid[cursor.y,cursor.x] == 0 || state.grid[cursor.y,cursor.x] == 8 # Is spot available?
 					state.grid[cursor.y,cursor.x] = state.player
 
 					boxes = Difference(state, prevgrid)	# Give box to the player who took it
@@ -788,23 +755,23 @@ function REPLMODE()
 					printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])	# Update the grid (to later print) here, so that the function on next line can take the right information		
 					printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
 
+
 					# Change turns, if no box is completed
-					if !state.gameover
-						if boxes == 0
-							if state.player == 1
-								state.player = 2
-							elseif state.player == 2
-								state.player = 1
-							end
+					if boxes == 0
+						if state.player == 1
+							state.player = 2
+						elseif state.player == 2
+							state.player = 1
 						end
 					end
-				end		
+				end
 			end
 		
 			if UPDATE
-				if state.score[1]+state.score[2] == (state.gh-1)*(state.gw-1)	
+				if state.score[1]+state.score[2] == (state.gh-1)*(state.gw-1)
 					clearscreen()
 					EndGame(state)
+					ENDGAME = true
 					UPDATE = false
 					continue # makes us stay in while loop (state.gameover is still false), in order to use key input
 				end
@@ -850,41 +817,11 @@ function REPLMODE()
 			exit()
 		end
 	end
-
 	DotsAndBoxesREPL()
 end
 
 #######################<---GAMEZERO GAME MODE--->#######################
 function GAMEZEROMODE()
-
-
 end
-
-
 #######################<---STARTUP--->#######################
-# Startup function move brackets along the different choices
-# for now: 
 REPLMODE()
-"""
-function StartUp()
-	Initiate_Keyboard_Input()
-	clearscreen()
-	println(ANSI.blue("Mode 1: REPL Game Mode"))
-	println(ANSI.red("Mode 2: GameZero Mode"))
-	println("Exit")
-	while true
-		sleep(0.05)
-		key = readinput()
-		if key  == "1"
-			REPLMODE()
-		elseif key == "2"
-			println("pressed 2")
-			GAMEZEROMODE()
-		elseif key == "3"
-			println("Goodbye")
-			exit()
-		end
-	end
-end
-StartUp()
-"""
