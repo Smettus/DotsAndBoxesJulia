@@ -364,7 +364,6 @@ function CheckChains(Chains::Dict)
 	for i in keys(Chains)
 		if length(Chains[i]) in 1:10
 			push!(LengthChainDict[length(Chains[i])+1],i)
-			println(LengthChainDict)
 		end
 	end
 	for i in keys(LengthChainDict)
@@ -373,14 +372,40 @@ function CheckChains(Chains::Dict)
 		end
 	end		
 	CleanDict(LengthChainDict)
-	println(LengthChainDict)
-	return n_LongChains
+	return n_LongChains,LengthChainDict
 end
 
 function CleanDict(dict)
 	for i in keys(dict)
 		if dict[i] == []
 			delete!(dict,i)
+		end
+	end
+end
+
+function CheckCycles(LengthChainDict,Chains)
+	for i in keys(LengthChainDict)
+		if i >= 4 #no cyles shorter than 4
+			for elem in 1:length(LengthChainDict[i])
+				startco = LengthChainDict[i][elem]
+				arr = Chains[startco]
+				ChainEnd = arr[end]
+				x = ChainEnd[1]
+				y = ChainEnd[2]
+				for j in -2:4:2
+					 xx = x+j
+					if "[$xx, $y]" == startco
+						println("$startco is the beginning of a cycle")
+					end
+				end
+				for h in -2:4:2
+					 yy = y+h
+					if "[$x, $yy]" == startco
+						println("$startco is the beginning of a cycle")	
+					end
+				end
+			end
+
 		end
 	end
 end
@@ -403,15 +428,15 @@ function test()
 		fixsettings()
 
 	clearscreen()
-	arr = [-1   1  -1   2  -1   1  -1;
-			1  -2   1  -2   1  -2   1;  
-		   -1   0  -1   0  -1   0  -1;
-			2  -2   0  -2   2  -2   1;
-		   -1   1  -1   1  -1   0  -1;
-			0  -2   0  -2   1  -2   1;
-		   -1   0  -1   0  -1   1  -1]
+	arr = [-1   1  -1   2  -1   1  -1  1 -1;
+			1  -2   1  -2   1  -2   1 -2  1;  
+		   -1   0  -1   0  -1   0  -1  0 -1;
+			2  -2   0  -2   2  -2   0 -2  1;
+		   -1   1  -1   1  -1   2  -1  2 -1;
+			0  -2   0  -2   1  -2   1 -2  0;
+		   -1   0  -1   0  -1   1  -1  0 -1]
 
-	printarray(arr)
+	#printarray(arr)
 	printstrgrid = GridToPrint(arr, SETTINGS["STARTCO"])
 	gridstr = ""
 	for y in 1:size(arr, 1)
@@ -421,8 +446,13 @@ function test()
 	end
 	println(gridstr)
 	Chains = Bot(arr)
-	n_longchains = CheckChains(Chains)
+	checkChains = CheckChains(Chains)
+	n_longchains = checkChains[1]
+	LengthChainDict = checkChains[2]
 	println(n_longchains)
+	println(LengthChainDict)
 	println(Chains)
+	CheckCycles(LengthChainDict,Chains)
+	println(LengthChainDict)
 end
 test()
