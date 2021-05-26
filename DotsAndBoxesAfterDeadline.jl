@@ -280,74 +280,69 @@ end
 function resetGrid(gw::Int, gh::Int)
 	return zeros(Int, 2*gh-1, 2*gw-1)
 end
-function InitiateGrid(state::GameState)
-	for y in 1:size(state.grid, 1)
+function InitiateGrid(grid::GRID)
+	for y in 1:size(grid, 1)
 		if y%2 != 0
-			for x in 1:size(state.grid, 2)
+			for x in 1:size(grid, 2)
 				if x%2 != 0
-					state.grid[y, x] = -1 # Dots
+					grid[y, x] = -1 # Dots
 				end
 			end
 		else
-			for x in 1:size(state.grid, 2)
+			for x in 1:size(grid, 2)
 				if x%2 == 0
-					state.grid[y, x] = -2 # Midpoints (to be used by algorithm/bot)
+					grid[y, x] = -2 # Midpoints (to be used by algorithm/bot)
 				end
 			end
 		end
 	end
 end
 
-function checkAround(state::GameState)
-	boxcounter = 0
+function checkAround(grid::GRID)
 	around = 0
-	for y in 1:size(state.grid, 1)
-		for x in 1:size(state.grid, 2)
+	for y in 1:size(grid, 1)
+		for x in 1:size(grid, 2)
 			around = 0
-			if state.grid[y, x] == -2
+			if grid[y, x] == -2
 				# Up-Down Left-Right
 				for dy in -1:2:1
-					if !(state.grid[y+dy, x] == 0 || state.grid[y+dy, x] == 8)
+					if !(grid[y+dy, x] == 0 || grid[y+dy, x] == 8)
 						around+=1
 					end
 				end
 				for dx in -1:2:1
-					if !(state.grid[y, x+dx] == 0 || state.grid[y, x+dx] == 8)
+					if !(grid[y, x+dx] == 0 || grid[y, x+dx] == 8)
 						around+=1
 					end
 				end
 				if around == 3
 					for dy in -1:2:1
-						if state.grid[y+dy, x] == 0
-							state.grid[y+dy, x] = 8 # Randomly chosen, >=5
+						if grid[y+dy, x] == 0
+							grid[y+dy, x] = 8 # Randomly chosen, >=5
 						end
 					end
 					for dx in -1:2:1
-						if state.grid[y, x+dx] == 0
-							state.grid[y, x+dx] = 8
+						if grid[y, x+dx] == 0
+							grid[y, x+dx] = 8
 						end
 					end
 				elseif around == 4
 					for dy in -1:2:1
-						if state.grid[y+dy, x] == 6
-							state.grid[y, x] = 20
-							boxcounter += 1
-							# state.grid[y+dy, x] = 2 do not change yet! See next for loop
-						elseif state.grid[y+dy, x] == 7
-							state.grid[y, x] = 10
-							boxcounter += 1
-							# state.grid[y+dy, x] = 1 do not change yet!
+						if grid[y+dy, x] == 6
+							grid[y, x] = 20
+							# grid[y+dy, x] = 2 do not change yet! See next for loop
+						elseif grid[y+dy, x] == 7
+							grid[y, x] = 10
+							# grid[y+dy, x] = 1 do not change yet!
 						end
 					end
 					for dx in -1:2:1
-						if state.grid[y, x+dx] == 6
-							state.grid[y, x] = 20
-							boxcounter += 1
-							# state.grid[y, x+dx] = 2 do not change yet!
-						elseif state.grid[y, x+dx] == 7
-							state.grid[y, x] = 10
-							boxcounter += 1
-							# state.grid[y, x+dx] = 1 do not change yet!
+						if grid[y, x+dx] == 6
+							grid[y, x] = 20
+							# grid[y, x+dx] = 2 do not change yet!
+						elseif grid[y, x+dx] == 7
+							grid[y, x] = 10
+							# grid[y, x+dx] = 1 do not change yet!
 						end
 					end
 				end
@@ -356,59 +351,70 @@ function checkAround(state::GameState)
 	end
 
 	# Fix the lines taken, give them to the player who took them
-	for y in 1:size(state.grid, 1)
-		for x in 1:size(state.grid, 2)
-			if state.grid[y, x] == 10
+	for y in 1:size(grid, 1)
+		for x in 1:size(grid, 2)
+			if grid[y, x] == 10
 				for dy in -1:2:1
-					if state.grid[y+dy, x] == 7
-						state.grid[y+dy, x] = 1
+					if grid[y+dy, x] == 7
+						grid[y+dy, x] = 1
 					end
 				end
 				for dx in -1:2:1
-					if state.grid[y, x+dx] == 7
-						state.grid[y, x+dx] = 1
+					if grid[y, x+dx] == 7
+						grid[y, x+dx] = 1
 					end
 				end
-			elseif state.grid[y, x] == 20
+			elseif grid[y, x] == 20
 				for dy in -1:2:1
-					if state.grid[y+dy, x] == 6
-						state.grid[y+dy, x] = 2
+					if grid[y+dy, x] == 6
+						grid[y+dy, x] = 2
 					end
 				end
 				for dx in -1:2:1
-					if state.grid[y, x+dx] == 6
-						state.grid[y, x+dx] = 2
+					if grid[y, x+dx] == 6
+						grid[y, x+dx] = 2
 					end
 				end
 			end
 		end
 	end
-	return boxcounter
+	return grid # Only needed when minimax algorithm needs this function
 end
 
 # Give box to the player who took it
-function Difference(state::GameState, oldgrid::GRID)
-	change = oldgrid - state.grid # Pointwise
-	boxes::Int = 0
-	for y in 1:size(state.grid, 1)
-		for x in 1:size(state.grid, 2)
+function Difference(grid::GRID, oldgrid::GRID)
+	change = oldgrid - grid # Pointwise
+	for y in 1:size(grid, 1)
+		for x in 1:size(grid, 2)
 			if change[y, x] > 5
-				state.grid[y, x] = change[y, x]
-				if checkAround(state) == 2
-					boxes += 2
-				else
-					boxes += 1
-				end
+				grid[y, x] = change[y, x]
 			end
 		end
 	end
-	return boxes
+	checkAround(grid)
 end
 
-function checkWinner(state::GameState)
-
+function score(checkgrid::GRID)
+	score = [0, 0]
+	for y in 1:size(checkgrid, 1)
+		for x in 1:size(checkgrid, 2)
+			if checkgrid[y, x] == 10
+				score[1] += 1
+			elseif checkgrid[y, x] == 20
+				score[2] += 1
+			end
+		end
+	end
+	return score
 end
-
+function changeTurns(state::GameState, diffscore::Array)
+	for i in diffscore
+		if i != 0
+			return false
+		end
+	end
+	return true
+end
 function BOT(state::GameState)
 	function available(state::GameState)
 		legalmoves = []
@@ -425,6 +431,7 @@ function BOT(state::GameState)
 	move = possible[rand(1:size(possible, 1))]
 
 	state.grid[move[1], move[2]] = state.player
+
 end
 
 # Output Handling
@@ -609,35 +616,82 @@ function REPLMODE()
 	end
 
 	function SettingsREPL(state::GameState)
+		global SETTINGS
+
+		Setting = []
+		Value = []
+		for key in keys(SETTINGS)
+   			push!(Setting, key)
+    		push!(Value, SETTINGS[key])
+		end
+		copysett = sortslices([Setting Value], dims=1)
+
+		n_sett::Int = 1 # Which setting is being accessed right now?
+		printer::Bool = true
+		function PrintSett(sett::Int)
+			clearscreen()
+			println(ANSI.yellow("SETTINGS"))
+			println()
+
+			for i in 1:size(copysett, 1)
+				if i == n_sett
+					println(ANSI.magenta(copysett[i, 1]*": "*string(copysett[i, 2])))
+				else
+					println(copysett[i, 1]*" : "*string(copysett[i, 2]))
+				end
+			end
+			printer = false
+		end
+
 		while true
 			sleep(0.05)
 			key = readinput()
 
-			SETTINGS = ImportSettings()
-			if key == "F2"
+			if key == "Up"
+
+			elseif key == "Down"
+
+				printer = true
+			elseif key == "F2"
+				SETTINGS = ImportSettings()
 				fixsettings()
 				break
+			end
+
+			if printer
+				PrintSett(n_sett)
 			end
 		end
 	end
 
-	function EndGame(state::GameState)
-		a = "\x1b[10;20C"
+	function showEndGame(state::GameState)
+		printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])
+		gridstr = ""
+		for y in 1:size(state.grid, 1)
+			for x in 1:size(state.grid, 2)
+				gridstr*=printstrgrid[y, x]
+			end
+		end
+		println(gridstr)
+
+		a = printstrgrid[end, 1] # Take out the cross element on top row to get coordinate
+		a *= "\x1b[2B" # Move cursor forward by 10 spaces
 		d = 7
 		text = " wins!!"
+
 		if state.score[1] > state.score[2]
 			println(a*"╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╗")
-        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN1"]*text)*" "^d*"║") # fix spaces...
+        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN1"]*text)*" "^d*"║")
         	println("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╝")
 		elseif state.score[1] < state.score[2]
 			println(a*"╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╗")
-        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN2"]*text)*" "^d*"║") # fix spaces...
+        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN2"]*text)*" "^d*"║")
         	println("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╝")
 		else
 			println(a*ANSI.green("DRAW"))
 		end
 		println()
-		println("Press CTRL-R to restart or CTRL-C to exit")
+		println(ANSI.yellow("Press CTRL-R to restart or CTRL-C to exit"))
 	end
 
 	# Debugging
@@ -656,7 +710,7 @@ function REPLMODE()
 		fixsettings()
 
 		state::GameState = GameState()
-		InitiateGrid(state)
+		InitiateGrid(state.grid)
 
 		UPDATE::Bool = true 	# Only update screen if something has happened (ie key press)
 		ENDGAME::Bool = false
@@ -684,18 +738,20 @@ function REPLMODE()
 				RESTART = true
 			elseif key == "Ctrl-C"
 				state.gameover = true
-			elseif key == "Ctrl-L" # Refresh -> not needed actually
+			elseif key == "Ctrl-L" # Refresh -> not needed anymore actually
 				UPDATE = true
+			elseif key == "Ctrl-S"
+				
 			elseif key == "?" || key == "F1"
 				HelpMenu()
 				UPDATE = true
 			elseif key == "F2"
+				UPDATE = true
 				SettingsREPL(state)
 				state = GameState()
-				InitiateGrid(state)
+				InitiateGrid(state.grid)
 				printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])
 				printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
-				UPDATE = true
 			elseif key == KEY_Z || key == "Up"
 				UPDATE = true
 				cursor.y -= 1
@@ -717,36 +773,48 @@ function REPLMODE()
 			elseif key == "Tab" && !ENDGAME
 				UPDATE = true
 				# Bot makes move, even if Settings BOT_ON = false
-
 				println("BOT")
 				BOT(state)
 
-				boxes = Difference(state, prevgrid)
-				checkAround(state)
+				# Give box to the player who took it
+				Difference(state.grid, prevgrid)
 
-				# Update the score
-				state.score[state.player] += boxes
+				# Update the score -> new method
+				diffscore = score(state.grid) - state.score
+				state.score = score(state.grid)
 
-				printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])	# Update the grid (to later print) here, so that the function on next line can take the right information		
-				printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
-
-				if boxes == 0
+				# Change turns, if no box is completed
+				if changeTurns(state, diffscore)
 					if state.player == 1
 						state.player = 2
 					elseif state.player == 2
 						state.player = 1
 					end
-				end	
+				end
+
+				printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])	# Update the grid (to later print) here, so that the function on next line can take the right information		
+				printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
 			elseif key == KEY_ENTER && !ENDGAME
 				UPDATE = true
 				if state.grid[cursor.y,cursor.x] == 0 || state.grid[cursor.y,cursor.x] == 8 # Is spot available?
+					# Give line to the player
 					state.grid[cursor.y,cursor.x] = state.player
 
-					boxes = Difference(state, prevgrid)	# Give box to the player who took it
-					checkAround(state)
+					# Give box to the player who took it
+					Difference(state.grid, prevgrid)
 
-					# Update the score
-					state.score[state.player] += boxes
+					# Update the score -> new method (maybe later: updatescore function)
+					diffscore = score(state.grid) - state.score
+					state.score = score(state.grid)
+
+					# Change turns, if no box is completed
+					if changeTurns(state, diffscore)
+						if state.player == 1
+							state.player = 2
+						elseif state.player == 2
+							state.player = 1
+						end
+					end
 
 					# Move cursor to beginning
 					cursor.x = 2
@@ -754,25 +822,17 @@ function REPLMODE()
 
 					printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])	# Update the grid (to later print) here, so that the function on next line can take the right information		
 					printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
-
-
-					# Change turns, if no box is completed
-					if boxes == 0
-						if state.player == 1
-							state.player = 2
-						elseif state.player == 2
-							state.player = 1
-						end
-					end
 				end
 			end
 		
 			if UPDATE
 				if state.score[1]+state.score[2] == (state.gh-1)*(state.gw-1)
 					clearscreen()
-					EndGame(state)
-					ENDGAME = true
+					ENDGAME = true # alternative to state.gameover
 					UPDATE = false
+
+					showEndGame(state)
+
 					continue # makes us stay in while loop (state.gameover is still false), in order to use key input
 				end
 				if !state.gameover
