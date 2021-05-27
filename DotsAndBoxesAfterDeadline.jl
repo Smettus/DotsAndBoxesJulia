@@ -7,7 +7,7 @@
  111  777    555555
 
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 24/05/2021 @0900
+	Last edit: 27/05/2021 @2200
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -161,6 +161,22 @@ function ImportSettings()
         end
         return d
 	end
+end
+function updateSettings(updateSett::Array)
+	filename = joinpath(@__DIR__, "Settings.dnb")
+	s = sortslices(updateSett, dims=1)
+    open(filename, "w") do io
+        writedlm(io, s, ':')
+    end
+end
+function allowedSettings()
+	# TODO
+	# gridwidth, gridheight >= 2
+	# player one or two
+	# readline for char/strings
+	# array: startco
+	# spacingx: name has to be shorter than distance!!
+	# if some setting is not possible: show it to the player
 end
 function CreateSettings(filename::String)
     BaseSettings = Dict([
@@ -417,15 +433,15 @@ function changeTurns(state::GameState, diffscore::Array)
 end
 function BOT(state::GameState)
 	function available(state::GameState)
-		legalmoves = []
+		availablemoves = []
 		for y in 1:size(state.grid, 1)
 			for x in 1:size(state.grid, 2)
 				if state.grid[y, x] == 0 || state.grid[y, x] == 8
-					push!(legalmoves, [y, x])
+					push!(availablemoves, [y, x])
 				end
 			end
 		end
-		return legalmoves
+		return availablemoves
 	end
 	possible = available(state)
 	move = possible[rand(1:size(possible, 1))]
@@ -435,8 +451,15 @@ function BOT(state::GameState)
 end
 
 # Output Handling
-function Output(state::GameState)
+function savegame(state::GameState)
 	# TODO: write board to file
+	# Other ideas: 
+	filename = joinpath(@__DIR__, "GameHistory.dnb")
+	if isfile(filename)
+        df = readdlm(filename, ':')
+	else
+    	#CreateSettings(filename)
+	end
 end
 
 
@@ -545,8 +568,16 @@ function REPLMODE()
         end
         return gridprint
 	end
-
-	function PrintInformation(state::GameState, printgrid::Array)
+	function printTheGrid(printgrid::Array)
+		gridstr = ""
+		for y in 1:size(printgrid, 1)
+			for x in 1:size(printgrid, 2)
+				gridstr*=printgrid[y, x]
+			end
+		end
+		println(gridstr)
+	end
+	function printLogo(printgrid::Array)
 		a = printgrid[1, end] # Take out the cross element on top row to get coordinate
 		a *= "\x1b[10C" # Move cursor forward by 10 spaces
 		o = SETTINGS["GRIDPOINT"]
@@ -559,7 +590,8 @@ function REPLMODE()
 		println(a*"|  /  | |  |   \\      | | |  | |  |     |   | | |  $(o)  |-   \\ ")
 		a *= "\x1b[1B"
 		println(a*"$(o)-$(o)   $(o)-$(o)  $(o)  $(o)-$(o)     $(o)-$(o)-$(o)  $(o)  $(o)-$(o)     $(o)--$(o)  $(o)-$(o) / \\ $(o)-$(o) $(o)-$(o)")
-
+	end
+	function printInformation(state::GameState, printgrid::Array)
 		k = 5 - Int(round(SETTINGS["SPACINGX"]/2-1))
 		if k >= 0
 			a = printgrid[3+k, end]
@@ -580,8 +612,48 @@ function REPLMODE()
 		end
 
 		# https://www.messletters.com/en/big-text/
-		# https://www.coolgenerator.com/ascii-text-generator
-                                                     
+		# https://www.coolgenerator.com/ascii-text-generator                                           
+	end
+	function showEndGame(state::GameState)
+		printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])
+		printTheGrid(printstrgrid)
+		printLogo(printstrgrid)
+
+		k = 5 - Int(round(SETTINGS["SPACINGX"]/2-1))
+		if k >= 0
+			a = printstrgrid[3+k, end]
+			a *= "\x1b[10C"
+		else
+			a = printstrgrid[3, end]
+			a *= "\x1b[10C"
+		end
+
+		d = 7
+		text = " takes the win!"
+		if state.score[1] > state.score[2]
+			println(a*ANSI.red("╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╗"))
+			a *= "\x1b[1B"
+        	println(a*ANSI.red("║"*" "^d*SETTINGS["PLAYERSIGN1"]*text*" "^d*"║"))
+        	a *= "\x1b[1B"
+        	println(a*ANSI.red("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╝"))
+		elseif state.score[1] < state.score[2]
+			println(a*ANSI.cyan("╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╗"))
+			a *= "\x1b[1B"
+        	println(a*ANSI.cyan("║"*" "^d*SETTINGS["PLAYERSIGN2"]*text*" "^d*"║"))
+        	a *= "\x1b[1B"	
+        	println(a*ANSI.cyan("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╝"))
+		else
+			for letter in eachindex("DRAW")
+				if letter%2 == 0
+					println(a*ANSI.red("DRAW"[letter]))
+				else
+					println(a*ANSI.cyan("DRAW"[letter]))
+				end
+				a *= "\x1b[1C"
+			end
+		end
+		a = printstrgrid[end, end]*"\x1b[10C"
+		println(a*"Press CTRL-R to restart or CTRL-C to exit")
 	end
 
 	function HelpMenu()
@@ -614,9 +686,9 @@ function REPLMODE()
 			end
 		end
 	end
-
 	function SettingsREPL(state::GameState)
 		global SETTINGS
+		# More intuitive UI -> more code 
 
 		Setting = []
 		Value = []
@@ -626,72 +698,164 @@ function REPLMODE()
 		end
 		copysett = sortslices([Setting Value], dims=1)
 
-		n_sett::Int = 1 # Which setting is being accessed right now?
+		change::Bool = false	# Only import settings again if change is made
 		printer::Bool = true
-		function PrintSett(sett::Int)
+		up_down::Int = 1 	# Which setting is being accessed right now?
+
+		function changeSett(up_down::Int, copysett::Array, initial::Int)
+			left_right::Int = 0 	# 1 is left, 2 is right
+			
+			function updateChange(up_down::Int, left_right::Int, copysett::Array)
+				change = true
+				# TODO: array/chars/strings (readline for the last two)
+				if isa(copysett[up_down, 2], Bool)
+					if copysett[up_down, 2]
+						copysett[up_down, 2] = false
+					else
+						copysett[up_down, 2] = true
+					end
+				elseif isa(copysett[up_down, 2], Int)
+					if left_right == 2
+						copysett[up_down, 2] += 1
+						#allowedSett(copysett, up_down)
+					else
+						copysett[up_down, 2] -= 1
+						#allowedSett(copysett, up_down)
+					end
+				end
+			end
+
+			# Individual setting loop
+			while true
+				sleep(0.05)
+				key = readinput()
+
+				if key == "Left" || initial == 1
+					initial = 0
+					left_right = 1
+					updateChange(up_down, left_right, copysett)
+					printer = true
+				elseif key == "Right" || initial == 2
+					initial = 0
+					left_right = 2
+					updateChange(up_down, left_right, copysett)
+					printer = true
+				elseif key == "Down"
+					return 1 	# To move fluently to next setting
+				elseif key == "Up"
+					return -1
+				elseif key == "F2"
+					return 0
+				end
+				if printer
+					printSett(up_down, copysett)
+					printer = false
+				end
+			end
+		end
+
+		function printSett(up_down::Int, copysett::Array)
 			clearscreen()
 			println(ANSI.yellow("SETTINGS"))
 			println()
 
 			for i in 1:size(copysett, 1)
-				if i == n_sett
+				if i == up_down
 					println(ANSI.magenta(copysett[i, 1]*": "*string(copysett[i, 2])))
 				else
-					println(copysett[i, 1]*" : "*string(copysett[i, 2]))
+					println(copysett[i, 1]*": "*string(copysett[i, 2]))
 				end
+			end
+			if change
+				println()
+				println("Press Ctrl-S to save settings")
 			end
 			printer = false
 		end
-
+		function fluentmoves(c::Int, up_down::Int, copysett::Array)
+		end
+		# Main settings loop
 		while true
 			sleep(0.05)
 			key = readinput()
 
 			if key == "Up"
-
-			elseif key == "Down"
-
 				printer = true
-			elseif key == "F2"
-				SETTINGS = ImportSettings()
-				fixsettings()
-				break
+				if up_down > 1
+					up_down -= 1
+				else
+					up_down = 1
+				end
+				c = changeSett(up_down, copysett, 0)
+				if c == 0 # Fluently leave settings
+					key = "F2"
+				else
+					up_down += c
+					if up_down < 1
+						up_down = 1
+					elseif up_down > size(copysett, 1)
+						up_down = size(copysett, 1)
+					end
+				end
+				printer = true
+			elseif key == "Down"
+				printer = true
+				if up_down < size(copysett, 1)
+					up_down += 1
+				end
+				c = changeSett(up_down, copysett, 0)
+				if c == 0 # Fluently leave settings
+					key = "F2"
+				else
+					up_down += c
+					if up_down < 1
+						up_down = 1
+					elseif up_down > size(copysett, 1)
+						up_down = size(copysett, 1)
+					end
+				end
+				printer = true
+			elseif key == "Left"
+				printer = true
+				c = changeSett(up_down, copysett, 1)
+				if c == 0 # Fluently leave settings
+					key = "F2"
+				else
+					up_down += c
+					if up_down < 1
+						up_down = 1
+					elseif up_down > size(copysett, 1)
+						up_down = size(copysett, 1)
+					end
+				end
+				printer = true
+			elseif key == "Right"
+				printer = true
+				c = changeSett(up_down, copysett, 2)
+				if c == 0 # Fluently leave settings
+					key = "F2"
+				else
+					up_down += c
+					if up_down < 1
+						up_down = 1
+					elseif up_down > size(copysett, 1)
+						up_down = size(copysett, 1)
+					end
+				end
+				printer = true
 			end
 
+			if key == "F2"
+				updateSettings(copysett)
+				return change
+			elseif key == "Ctrl-S"
+				# TODO, allowedSett
+				# this needs to be in individual setting
+			end
 			if printer
-				PrintSett(n_sett)
+				printSett(up_down, copysett)
 			end
 		end
-	end
-
-	function showEndGame(state::GameState)
-		printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])
-		gridstr = ""
-		for y in 1:size(state.grid, 1)
-			for x in 1:size(state.grid, 2)
-				gridstr*=printstrgrid[y, x]
-			end
-		end
-		println(gridstr)
-
-		a = printstrgrid[end, 1] # Take out the cross element on top row to get coordinate
-		a *= "\x1b[2B" # Move cursor forward by 10 spaces
-		d = 7
-		text = " wins!!"
-
-		if state.score[1] > state.score[2]
-			println(a*"╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╗")
-        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN1"]*text)*" "^d*"║")
-        	println("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN1"]*text)*"─"^d*"╝")
-		elseif state.score[1] < state.score[2]
-			println(a*"╔"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╗")
-        	println("║"*" "^d*ANSI.red(SETTINGS["PLAYERSIGN2"]*text)*" "^d*"║")
-        	println("╚"*"─"^d*"─"^length(SETTINGS["PLAYERSIGN2"]*text)*"─"^d*"╝")
-		else
-			println(a*ANSI.green("DRAW"))
-		end
-		println()
-		println(ANSI.yellow("Press CTRL-R to restart or CTRL-C to exit"))
 	end
 
 	# Debugging
@@ -713,7 +877,7 @@ function REPLMODE()
 		InitiateGrid(state.grid)
 
 		UPDATE::Bool = true 	# Only update screen if something has happened (ie key press)
-		ENDGAME::Bool = false
+		ENDGAME::Bool = false	# Alternative bool to state.gameover (such that keys can be pressed in endgame)
 		RESTART::Bool = false	# To play directly again
 
 		Initiate_Keyboard_Input()
@@ -741,17 +905,20 @@ function REPLMODE()
 			elseif key == "Ctrl-L" # Refresh -> not needed anymore actually
 				UPDATE = true
 			elseif key == "Ctrl-S"
-				
+				# savegame(), create a history
 			elseif key == "?" || key == "F1"
-				HelpMenu()
 				UPDATE = true
+				HelpMenu()
 			elseif key == "F2"
 				UPDATE = true
-				SettingsREPL(state)
-				state = GameState()
-				InitiateGrid(state.grid)
-				printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])
-				printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
+				if SettingsREPL(state)
+					SETTINGS = ImportSettings()
+					fixsettings()
+					state = GameState()
+					InitiateGrid(state.grid)
+					printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])
+					printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
+				end
 			elseif key == KEY_Z || key == "Up"
 				UPDATE = true
 				cursor.y -= 1
@@ -838,16 +1005,11 @@ function REPLMODE()
 				if !state.gameover
 					clearscreen()
 					printstrgrid = GridToPrint(state, SETTINGS["STARTCO"])
-					PrintInformation(state, printstrgrid)
+					printLogo(printstrgrid)
+					printInformation(state, printstrgrid)
 
 					# Print Grid
-					gridstr = ""
-					for y in 1:size(state.grid, 1)
-						for x in 1:size(state.grid, 2)
-							gridstr*=printstrgrid[y, x]
-						end
-					end
-					println(gridstr)
+					printTheGrid(printstrgrid)
 					#printarray(printstrgrid, state)
 					#printarray(state.grid, state)
 
