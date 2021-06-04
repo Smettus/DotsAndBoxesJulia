@@ -372,7 +372,7 @@ function checkAround(grid::GRID)
 			if grid[y, x] == 10
 				for dy in -1:2:1
 					if grid[y+dy, x] == 7
-						grid[y+dy, x] = 1
+						grid[y+dy, x] = 1 # Player one
 					end
 				end
 				for dx in -1:2:1
@@ -383,7 +383,7 @@ function checkAround(grid::GRID)
 			elseif grid[y, x] == 20
 				for dy in -1:2:1
 					if grid[y+dy, x] == 6
-						grid[y+dy, x] = 2
+						grid[y+dy, x] = 2 # Player two
 					end
 				end
 				for dx in -1:2:1
@@ -409,20 +409,6 @@ function Difference(grid::GRID, oldgrid::GRID)
 	end
 	checkAround(grid)
 end
-
-function score(checkgrid::GRID)
-	score = [0, 0]
-	for y in 1:size(checkgrid, 1)
-		for x in 1:size(checkgrid, 2)
-			if checkgrid[y, x] == 10
-				score[1] += 1
-			elseif checkgrid[y, x] == 20
-				score[2] += 1
-			end
-		end
-	end
-	return score
-end
 function changeTurns(state::GameState, diffscore::Array)
 	for i in diffscore
 		if i != 0
@@ -431,23 +417,131 @@ function changeTurns(state::GameState, diffscore::Array)
 	end
 	return true
 end
-function BOT(state::GameState)
-	function available(state::GameState)
-		availablemoves = []
-		for y in 1:size(state.grid, 1)
-			for x in 1:size(state.grid, 2)
-				if state.grid[y, x] == 0 || state.grid[y, x] == 8
-					push!(availablemoves, [y, x])
-				end
+
+####
+function score(checkgrid::GRID)
+	scores = [0, 0]
+	for y in 2:2:size(checkgrid, 1)
+		for x in 2:2:size(checkgrid, 2)
+			if checkgrid[y, x] == 10
+				scores[1] += 1
+			elseif checkgrid[y, x] == 20
+				scores[2] += 1
 			end
 		end
-		return availablemoves
 	end
-	possible = available(state)
-	move = possible[rand(1:size(possible, 1))]
+	return scores
+end
+function available(checkgrid::GRID)
+	availablemoves = []
+	for y in 1:size(checkgrid, 1)
+		for x in 1:size(checkgrid, 2)
+			if checkgrid[y, x] == 0 || checkgrid[y, x] == 8
+				push!(availablemoves, [y, x])
+			end
+		end
+	end
+	return availablemoves
+end
+function checkWinner(checkgrid::GRID)
+	scores = score(checkgrid)
+	if scores[1] > scores[2]
+		return 1
+	elseif scores[1] < scores[2]
+		return 2
+	else
+		return 0
+	end
+end
+function statEval(checkstate::GameState)
+	return 1
+	# Factor Score (amount of boxes)
+	scores = score(checkstate.grid)
 
+
+	# Factor Chains (amount of chains)
+
+end
+function minimax(checkstate::GameState, depth::Int, isMax::Bool, prevgrid)
+	Difference(checkstate.grid, prevgrid)
+	diffscore = score(checkstate.grid) - checkstate.score
+	if changeTurns(checkstate, diffscore)
+		if checkstate.player == 1
+			checkstate.player = 2
+		elseif checkstate.player == 2
+			checkstate.player = 1
+		end
+	end
+	prevgrid = deepcopy(checkstate.grid)
+
+	availableMoves = available(checkstate.grid)
+	if depth == 0  || length(availableMoves) == 0 # don't search any further
+		return statEval(checkstate)
+	end
+
+	if isMax
+		# Maximizing player
+		maxEval = -Inf
+		for move in eachindex(availableMoves)
+			checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = checkstate.player
+			currEval = minimax(checkstate, depth-1, false, prevgrid)
+			checkstate.grid = prevgrid # Undo Move
+			checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = 0
+			checkAround(checkstate.grid)
+			maxEval = max(maxEval, currEval)
+			#@show maxEval
+		end
+		return maxEval
+	else
+		# Minimizing player
+		minEval = Inf
+		for move in eachindex(availableMoves)
+			checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = checkstate.player
+			currEval = minimax(checkstate, depth-1, true, prevgrid)
+			checkstate.grid = prevgrid # Undo Move
+			checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = 0
+			checkAround(checkstate.grid)
+			minEval = min(minEval, currEval)
+			#@show minEval
+		end
+		return minEval
+	end
+end
+global printthis = []
+function minimaxMove(checkstate::GameState)
+	bestScore = -Inf
+	bestMove = []
+	initialplayer = deepcopy(checkstate.player)
+	prevgrid = deepcopy(checkstate.grid)
+
+	availableMoves = available(checkstate.grid)
+	for move in eachindex(availableMoves)
+		push!(printthis, checkstate.player)
+		checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = checkstate.player # Bot makes initial move
+		score = minimax(checkstate, 4, false, prevgrid) # only look 3 moves further
+		checkstate.grid = prevgrid # Undo move
+		checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = 0
+		checkAround(checkstate.grid) # Fix the grid (8's)
+		checkstate.player = initialplayer
+
+		if score > bestScore
+			bestScore = score
+			bestMove = availableMoves[move]
+		end
+	end
+	return bestMove
+end
+
+function BOT(state::GameState)
+	checkstate = deepcopy(state)
+	move = minimaxMove(checkstate)
+	push!(printthis, move)
+
+	"""
+	possible = available(state.grid)
+	move = possible[begin]
+	"""
 	state.grid[move[1], move[2]] = state.player
-
 end
 
 # Output Handling
@@ -610,7 +704,6 @@ function REPLMODE()
 			a *= "\x1b[1B"
 			println(a*"Score of $(SETTINGS["PLAYERSIGN$(i)"]): ", "$(state.score[i])")
 		end
-
 		# https://www.messletters.com/en/big-text/
 		# https://www.coolgenerator.com/ascii-text-generator                                           
 	end
@@ -991,7 +1084,7 @@ function REPLMODE()
 					printstrcursor = CursorInGameMove(state, cursor, printstrgrid)
 				end
 			end
-		
+
 			if UPDATE
 				if state.score[1]+state.score[2] == (state.gh-1)*(state.gw-1)
 					clearscreen()
@@ -1035,7 +1128,7 @@ function REPLMODE()
 			DotsAndBoxesREPL()
 		else
 			clearscreen()
-			println("Exit")
+			println("Aww goodbye!")
 			exit()
 		end
 	end
