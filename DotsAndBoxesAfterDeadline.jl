@@ -7,7 +7,7 @@
  111  777    555555
 
 	Created by: Tim De Smet, Tomas Oostvogels
-	Last edit: 27/05/2021 @2200
+	Last edit: 07/06/2021 @1555
 --------------------------------------------------------------------
 	IDEAS
 		- Startup menu: choose between which mode, REPL or GameZero
@@ -419,6 +419,143 @@ function changeTurns(state::GameState, diffscore::Array)
 end
 
 ####
+function chainsInGame(grid::Array)
+	Chains = Dict([])	# To keep track of chains
+	History = []	# To keep track of places checked
+
+	function InGrid(co)
+		if co[1] > 0 && co[2] > 0 && co[1] <= size(grid, 2) && co[2] <= size(grid, 1)
+			return true
+		else
+			return false
+		end
+	end
+	function IsPartOfChain(co)
+		# Other method to look around
+		x = co[1] # For demonstrative purposes
+		y = co[2]
+		CellsAround = [
+			(x, y-1),
+			(x+1, y),
+			(x, y+1),
+	        (x-1, y)]
+	    n_around = 0
+
+	    for cell in CellsAround
+	    	if InGrid(cell)
+	    		if grid[cell[2],cell[1]] == 1 || grid[cell[2],cell[1]] == 2
+	    			n_around += 1
+	    		end
+	    	end
+	    end
+	    if n_around == 2 || n_around == 3
+	    	return true
+	    else
+	    	return false
+	    end
+	end 
+
+	function Around(co, startco)
+		x = co[1] # For demonstrative purposes
+		y = co[2]
+		# Array of arrays (tuples are immutable)
+		CellsAround = [
+			[x,y],
+			[x, y-1],
+			[x+1, y],
+			[x, y+1],
+	        [x-1, y]]
+	    for cell in CellsAround
+	    	if InGrid(cell)
+	    		if grid[cell[2],cell[1]] == 0 || grid[cell[2],cell[1]] == 8 || grid[cell[2],cell[1]] == -2 
+	    			if cell == CellsAround[1]
+	    				if !IsPartOfChain(cell)
+	    					push!(History,cell)
+	    					continue
+	    				elseif !(cell in History)
+	    					push!(History,cell)
+	    				end
+	    			elseif cell == CellsAround[2]
+	    				cell[2] -= 1 # Move up
+	    				if !InGrid(cell)
+	    					continue
+	    				else
+	    					if !IsPartOfChain(cell)
+	    						push!(History,cell)
+	    						continue
+	    					elseif !(cell in History)
+	    						push!(Chains["$(startco)"],cell) # Tie current coordinate to array in dictionary - make chain of coordinates
+	    					end
+	    					if !(cell in History)
+	    						push!(History,cell)
+	    						Around(cell, startco)
+	    					end
+	    				end
+	    			elseif cell == CellsAround[3]
+	    				cell[1] += 1
+	    				if !InGrid(cell)
+	    					continue
+	    				else
+	    					if !IsPartOfChain(cell)
+	    						push!(History,cell)
+	    						continue
+	    					elseif !(cell in History)
+	    						push!(Chains["$(startco)"],cell)
+	    					end
+	    					if !(cell in History)
+	    						push!(History,cell)
+	    						Around(cell, startco)
+	    					end
+	    				end
+	    			elseif cell == CellsAround[4]
+	    				cell[2] += 1
+	    				if !InGrid(cell)
+	    					continue
+	    				else
+	    					if !IsPartOfChain(cell)
+	    						push!(History,cell)
+	    						continue
+	    					elseif !(cell in History)
+	    						push!(Chains["$(startco)"],cell)
+	    					end
+	    					if !(cell in History)
+	    						push!(History,cell)
+	    						Around(cell, startco)
+	    					end
+	    				end
+	    			elseif cell == CellsAround[5]
+	    				cell[1] -= 1
+	    				if !InGrid(cell)
+	    					continue
+	    				else
+	    					if !IsPartOfChain(cell)
+	    						push!(History,cell)
+	    						continue
+	    					elseif !(cell in History)
+	    						push!(Chains["$(startco)"],cell)
+	    					end
+	    					if !(cell in History)
+	    						push!(History,cell)
+	    						Around(cell, startco)
+	    					end
+	    				end
+	    			end
+	    		end
+	    	end
+	    end
+	end
+
+	for y in 1:size(grid, 1)
+		for x in 1:size(grid, 2)
+			if grid[y,x] == -2 && IsPartOfChain([x,y]) && !([x,y] in History)
+	    		Chains["$([x,y])"] = []
+				Around([x,y], [x,y])
+			end
+		end
+	end
+	return Chains # return dictionary of current chains found (only >=2)
+end
+###
 function score(checkgrid::GRID)
 	scores = [0, 0]
 	for y in 2:2:size(checkgrid, 1)
@@ -453,18 +590,23 @@ function checkWinner(checkgrid::GRID)
 		return 0
 	end
 end
+
+# Minimax specific -> TODO
 function statEval(checkstate::GameState)
-	return 1
 	# Factor Score (amount of boxes)
 	scores = score(checkstate.grid)
 
-
 	# Factor Chains (amount of chains)
+
+	return 1
 
 end
 function minimax(checkstate::GameState, depth::Int, isMax::Bool, prevgrid)
+	prevgrid = deepcopy(checkstate.grid)
+
+	# todo: update checkstate.score to use diffscore
 	Difference(checkstate.grid, prevgrid)
-	diffscore = score(checkstate.grid) - checkstate.score
+	diffscore = score(checkstate.grid) - score(prevgrid)
 	if changeTurns(checkstate, diffscore)
 		if checkstate.player == 1
 			checkstate.player = 2
@@ -472,7 +614,11 @@ function minimax(checkstate::GameState, depth::Int, isMax::Bool, prevgrid)
 			checkstate.player = 1
 		end
 	end
-	prevgrid = deepcopy(checkstate.grid)
+	if checkstate.player == initialplayer
+
+	else
+
+	end
 
 	availableMoves = available(checkstate.grid)
 	if depth == 0  || length(availableMoves) == 0 # don't search any further
@@ -507,35 +653,49 @@ function minimax(checkstate::GameState, depth::Int, isMax::Bool, prevgrid)
 		return minEval
 	end
 end
-global printthis = []
 function minimaxMove(checkstate::GameState)
 	bestScore = -Inf
 	bestMove = []
+	currscore = -Inf
 	initialplayer = deepcopy(checkstate.player)
 	prevgrid = deepcopy(checkstate.grid)
 
 	availableMoves = available(checkstate.grid)
 	for move in eachindex(availableMoves)
-		push!(printthis, checkstate.player)
-		checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = checkstate.player # Bot makes initial move
-		score = minimax(checkstate, 4, false, prevgrid) # only look 3 moves further
-		checkstate.grid = prevgrid # Undo move
-		checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = 0
-		checkAround(checkstate.grid) # Fix the grid (8's)
-		checkstate.player = initialplayer
+		checkstate.grid[availableMoves[move][1], availableMoves[move][2]] = initialplayer # Bot makes initial move
 
-		if score > bestScore
-			bestScore = score
+		# todo: code refactoring
+		Difference(checkstate.grid, prevgrid)
+		diffscore = score(checkstate.grid) - score(prevgrid)
+		if changeTurns(checkstate, diffscore)
+			if checkstate.player == 1
+				checkstate.player = 2
+			elseif checkstate.player == 2
+				checkstate.player = 1
+			end
+		end
+
+		if checkstate.player == initialplayer
+			currscore = minimax(checkstate, 7, true, prevgrid) # than it is still the bots' turn
+		else
+			currscore = minimax(checkstate, 7, false, prevgrid) # its the opponents turn, minimizing
+		end
+
+		checkstate.grid = prevgrid # Undo move
+		checkstate.player = initialplayer # Again, bot to start
+
+		if currscore > bestScore
+			bestScore = currscore
 			bestMove = availableMoves[move]
 		end
 	end
+
 	return bestMove
 end
 
 function BOT(state::GameState)
 	checkstate = deepcopy(state)
 	move = minimaxMove(checkstate)
-	push!(printthis, move)
 
 	"""
 	possible = available(state.grid)
