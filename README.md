@@ -7,7 +7,7 @@
 
 basic strategy
 
-minimax
+~~minimax~~
 
 
 
