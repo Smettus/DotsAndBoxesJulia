@@ -805,11 +805,33 @@ function statEval(checkstate::GameState)
 		otherplayer = 1
 	end
 
-	diff = scores[initialplayertop] - scores[otherplayer]
+	factorscore = scores[initialplayertop] - scores[otherplayer]
 
 	# Factor Chains (amount of chains) -> todo
+	# Sum dots + number of chains = even -> player 1 controls
+	
+	"""
+	Chains = ChainsInGame(checkstate.grid)
+	checkChains = CheckChains(Chains)
+	n_longchains = checkChains[1]
+	factorchains = 0
 
-	return diff
+	if checkstate.bot == 1 # the bot
+		if (n_longchains + checkstate.gw*checkstate.gh)%2 == 0
+			# Player one has control
+			factorchains += 3
+		else
+			# Other player has control
+			factorchains -= 3
+		end
+	else
+		if (n_longchains + checkstate.gw*checkstate.gh)%2 == 0
+
+	end
+
+	"""
+
+	return factorscore
 end
 function minimax(checkstate::GameState, depth::Int, isMax::Bool, prevgrid::GRID, prevplayer::Int)
 	global counter
