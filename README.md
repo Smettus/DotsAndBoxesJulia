@@ -1,5 +1,14 @@
 # DotsAndBoxesJulia
 
+Implementation of Dots and Boxes game in Julia. It's supposed to be played in the terminal.
+
+Features minimax algorithm to have a bot play the game.
+
+
+
+
+
+
 
 **Bot**
 
